@@ -4,4 +4,6 @@ pub mod delivery_mode;
 pub mod granularity;
 pub mod metric;
 pub mod observed_event;
+pub mod recent_ids;
+pub mod rollup;
 pub mod usage_signal;
