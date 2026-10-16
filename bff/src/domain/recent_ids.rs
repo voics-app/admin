@@ -14,6 +14,10 @@ impl RecentIds {
         Self { capacity, order: VecDeque::with_capacity(capacity), seen: HashSet::with_capacity(capacity) }
     }
 
+    pub fn contains(&self, id: &str) -> bool {
+        self.seen.contains(id)
+    }
+
     /// Returns `true` the first time an id is seen, `false` for a duplicate.
     pub fn first_sighting(&mut self, id: &str) -> bool {
         if self.seen.contains(id) {
@@ -55,6 +59,14 @@ mod tests {
         ids.first_sighting("c");
         assert!(ids.first_sighting("a"));
         assert!(!ids.first_sighting("c"));
+    }
+
+    #[test]
+    fn contains_does_not_record_the_id() {
+        let mut ids = RecentIds::new(2);
+        assert!(!ids.contains("a"));
+        assert!(ids.first_sighting("a"));
+        assert!(ids.contains("a"));
     }
 
     #[test]

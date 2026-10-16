@@ -1,3 +1,6 @@
+/// Services always listed on the health page, even before they are scraped.
+pub const PLATFORM_SERVICES: [&str; 6] = ["api", "messages", "gateway", "voice-signaling", "sfu", "admin-bff"];
+
 /// Error ratio at or above which a service is considered degraded.
 pub const DEGRADED_ERROR_RATIO: f64 = 0.05;
 

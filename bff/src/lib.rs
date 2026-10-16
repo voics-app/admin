@@ -8,4 +8,5 @@
 //!
 //! The composition root lives in `main.rs` / [`bootstrap`].
 
+pub mod application;
 pub mod domain;
