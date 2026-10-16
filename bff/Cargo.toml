@@ -1,0 +1,25 @@
+[package]
+name = "admin-bff"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "UNLICENSED"
+publish = false
+description = "Discordy admin portal backend-for-frontend: usage aggregation, platform health, voice regions, trust & safety."
+
+[lib]
+name = "admin_bff"
+path = "src/lib.rs"
+
+[[bin]]
+name = "admin-bff"
+path = "src/main.rs"
+
+[dependencies]
+chrono = { version = "0.4", default-features = false, features = ["std", "clock", "serde"] }
+thiserror = "2"
+
+[dev-dependencies]
+
+[lints.rust]
+unsafe_code = "forbid"
