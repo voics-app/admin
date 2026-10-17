@@ -1,0 +1,1 @@
+{"release-type":"simple","packages":{".":{"component":"admin","changelog-path":"CHANGELOG.md","extra-files":[{"type":"toml","path":"bff/Cargo.toml","jsonpath":"$.package.version"}]}}}
