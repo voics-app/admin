@@ -1,0 +1,21 @@
+name: ci
+on:
+  push:
+    branches: [main, develop, "feature/**", "release/**"]
+  pull_request:
+
+jobs:
+  rust:
+    uses: discordy-voics/.github/.github/workflows/rust.yml@main
+    with:
+      working-directory: bff
+  web:
+    uses: discordy-voics/.github/.github/workflows/node.yml@main
+    with:
+      working-directory: web
+  docker:
+    needs: [rust, web]
+    uses: discordy-voics/.github/.github/workflows/docker.yml@main
+    with:
+      image-name: discordy-admin
+      description: Discordy admin portal (Rust BFF with embedded React SPA)
