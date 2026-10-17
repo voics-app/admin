@@ -69,6 +69,12 @@ pub trait PlatformMetrics: Send + Sync {
     async fn target_availability(&self) -> PortResult<Vec<TargetAvailability>>;
     /// Current value of a panel, one entry per label (service, consumer group, node...).
     async fn snapshot(&self, panel: HealthPanel) -> PortResult<Vec<LabelledValue>>;
-    async fn series(&self, panel: HealthPanel, from: DateTime<Utc>, to: DateTime<Utc>, step_seconds: u32) -> PortResult<Vec<LabelledSeries>>;
+    async fn series(
+        &self,
+        panel: HealthPanel,
+        from: DateTime<Utc>,
+        to: DateTime<Utc>,
+        step_seconds: u32,
+    ) -> PortResult<Vec<LabelledSeries>>;
     async fn is_reachable(&self) -> bool;
 }

@@ -22,7 +22,9 @@ impl PgFeatureFlags {
 
 fn to_stored(row: FlagRow) -> PortResult<StoredFlag> {
     let (key, description, enabled, rollout, updated_at, updated_by) = row;
-    let corrupt = |e: crate::domain::feature_flag::FlagError| PortError::Unavailable(format!("stored flag {key} is invalid: {e}"));
+    let corrupt = |e: crate::domain::feature_flag::FlagError| {
+        PortError::Unavailable(format!("stored flag {key} is invalid: {e}"))
+    };
     let flag = FeatureFlag::new(
         FlagKey::parse(&key).map_err(corrupt)?,
         &description,
@@ -30,7 +32,11 @@ fn to_stored(row: FlagRow) -> PortResult<StoredFlag> {
         RolloutPercent::parse(i64::from(rollout)).map_err(corrupt)?,
     )
     .map_err(corrupt)?;
-    Ok(StoredFlag { flag, updated_at, updated_by })
+    Ok(StoredFlag {
+        flag,
+        updated_at,
+        updated_by,
+    })
 }
 
 #[async_trait]
@@ -65,7 +71,15 @@ impl FeatureFlagRepository for PgFeatureFlags {
     }
 
     async fn delete(&self, key: &FlagKey) -> PortResult<()> {
-        let result = sqlx::query("DELETE FROM feature_flags WHERE key = $1").bind(key.as_str()).execute(&self.pool).await.map_err(db_error)?;
-        if result.rows_affected() == 0 { Err(PortError::NotFound) } else { Ok(()) }
+        let result = sqlx::query("DELETE FROM feature_flags WHERE key = $1")
+            .bind(key.as_str())
+            .execute(&self.pool)
+            .await
+            .map_err(db_error)?;
+        if result.rows_affected() == 0 {
+            Err(PortError::NotFound)
+        } else {
+            Ok(())
+        }
     }
 }

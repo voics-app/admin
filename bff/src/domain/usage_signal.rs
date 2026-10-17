@@ -5,9 +5,19 @@ use super::observed_event::{EventFacts, ObservedEvent, UsageTick, VoiceQualitySa
 /// One countable fact derived from an event.
 #[derive(Debug, Clone, PartialEq)]
 pub enum UsageSignal {
-    Count { metric: CounterMetric, dimension: String, amount: i64 },
-    Gauge { metric: GaugeMetric, dimension: String, value: f64 },
-    ActiveUser { user_id: String },
+    Count {
+        metric: CounterMetric,
+        dimension: String,
+        amount: i64,
+    },
+    Gauge {
+        metric: GaugeMetric,
+        dimension: String,
+        value: f64,
+    },
+    ActiveUser {
+        user_id: String,
+    },
     Quality(VoiceQualitySample),
 }
 
@@ -20,7 +30,11 @@ pub fn signals_for(event: &ObservedEvent) -> Vec<UsageSignal> {
     signals.extend(active_users(&event.actor_ids));
     match &event.facts {
         EventFacts::MessageCreated => {
-            signals.push(count(CounterMetric::Messages, DeliveryMode::Standard.as_str(), 1));
+            signals.push(count(
+                CounterMetric::Messages,
+                DeliveryMode::Standard.as_str(),
+                1,
+            ));
         }
         EventFacts::UsageTick(tick) => signals.extend(tick_signals(tick)),
         EventFacts::VoiceQuality(sample) => signals.push(UsageSignal::Quality(sample.clone())),
@@ -30,14 +44,23 @@ pub fn signals_for(event: &ObservedEvent) -> Vec<UsageSignal> {
 }
 
 fn count(metric: CounterMetric, dimension: &str, amount: i64) -> UsageSignal {
-    UsageSignal::Count { metric, dimension: dimension.to_owned(), amount }
+    UsageSignal::Count {
+        metric,
+        dimension: dimension.to_owned(),
+        amount,
+    }
 }
 
 fn active_users(actor_ids: &[String]) -> Vec<UsageSignal> {
     let mut unique: Vec<&String> = actor_ids.iter().collect();
     unique.sort();
     unique.dedup();
-    unique.into_iter().map(|id| UsageSignal::ActiveUser { user_id: id.clone() }).collect()
+    unique
+        .into_iter()
+        .map(|id| UsageSignal::ActiveUser {
+            user_id: id.clone(),
+        })
+        .collect()
 }
 
 fn tick_signals(tick: &UsageTick) -> Vec<UsageSignal> {
@@ -48,7 +71,11 @@ fn tick_signals(tick: &UsageTick) -> Vec<UsageSignal> {
     ];
     for (mode, amount) in private_modes {
         if amount > 0 {
-            signals.push(count(CounterMetric::Messages, mode.as_str(), saturating_i64(amount)));
+            signals.push(count(
+                CounterMetric::Messages,
+                mode.as_str(),
+                saturating_i64(amount),
+            ));
         }
     }
     let gauges = [
@@ -58,13 +85,24 @@ fn tick_signals(tick: &UsageTick) -> Vec<UsageSignal> {
     ];
     for (metric, value) in gauges {
         if let Some(value) = value {
-            signals.push(UsageSignal::Gauge { metric, dimension: tick.node_id.clone(), value: value as f64 });
+            signals.push(UsageSignal::Gauge {
+                metric,
+                dimension: tick.node_id.clone(),
+                value: value as f64,
+            });
         }
     }
-    let voice_seconds = tick.voice_users.unwrap_or(0).saturating_mul(u64::from(tick.interval_seconds));
+    let voice_seconds = tick
+        .voice_users
+        .unwrap_or(0)
+        .saturating_mul(u64::from(tick.interval_seconds));
     if voice_seconds > 0 {
         let region = tick.voice_region.as_deref().unwrap_or(UNKNOWN_REGION);
-        signals.push(count(CounterMetric::VoiceSeconds, region, saturating_i64(voice_seconds)));
+        signals.push(count(
+            CounterMetric::VoiceSeconds,
+            region,
+            saturating_i64(voice_seconds),
+        ));
     }
     signals
 }
@@ -89,25 +127,42 @@ mod tests {
     }
 
     fn count(metric: CounterMetric, dimension: &str, amount: i64) -> UsageSignal {
-        UsageSignal::Count { metric, dimension: dimension.into(), amount }
+        UsageSignal::Count {
+            metric,
+            dimension: dimension.into(),
+            amount,
+        }
     }
 
     fn gauge(metric: GaugeMetric, dimension: &str, value: f64) -> UsageSignal {
-        UsageSignal::Gauge { metric, dimension: dimension.into(), value }
+        UsageSignal::Gauge {
+            metric,
+            dimension: dimension.into(),
+            value,
+        }
     }
 
     fn active(user: &str) -> UsageSignal {
-        UsageSignal::ActiveUser { user_id: user.into() }
+        UsageSignal::ActiveUser {
+            user_id: user.into(),
+        }
     }
 
     fn tick(node: &str) -> UsageTick {
-        UsageTick { node_id: node.into(), interval_seconds: 10, ..Default::default() }
+        UsageTick {
+            node_id: node.into(),
+            interval_seconds: 10,
+            ..Default::default()
+        }
     }
 
     #[test]
     fn every_event_is_counted_by_type() {
         let signals = signals_for(&event("GUILD_CREATE", &[], EventFacts::Other));
-        assert_eq!(signals, vec![count(CounterMetric::Events, "GUILD_CREATE", 1)]);
+        assert_eq!(
+            signals,
+            vec![count(CounterMetric::Events, "GUILD_CREATE", 1)]
+        );
     }
 
     #[test]
@@ -125,14 +180,26 @@ mod tests {
 
     #[test]
     fn created_message_counts_as_one_standard_message() {
-        let signals = signals_for(&event("MESSAGE_CREATE", &["42"], EventFacts::MessageCreated));
-        assert!(signals.contains(&count(CounterMetric::Messages, DeliveryMode::Standard.as_str(), 1)));
+        let signals = signals_for(&event(
+            "MESSAGE_CREATE",
+            &["42"],
+            EventFacts::MessageCreated,
+        ));
+        assert!(signals.contains(&count(
+            CounterMetric::Messages,
+            DeliveryMode::Standard.as_str(),
+            1
+        )));
         assert!(signals.contains(&count(CounterMetric::Events, "MESSAGE_CREATE", 1)));
     }
 
     #[test]
     fn usage_tick_reports_private_mode_message_counts() {
-        let facts = UsageTick { ephemeral_relayed: 7, p2p_signaled: 3, ..tick("gw-0") };
+        let facts = UsageTick {
+            ephemeral_relayed: 7,
+            p2p_signaled: 3,
+            ..tick("gw-0")
+        };
         let signals = signals_for(&event("USAGE_TICK", &[], EventFacts::UsageTick(facts)));
         assert!(signals.contains(&count(CounterMetric::Messages, "ephemeral", 7)));
         assert!(signals.contains(&count(CounterMetric::Messages, "p2p", 3)));
@@ -140,13 +207,28 @@ mod tests {
 
     #[test]
     fn usage_tick_skips_zero_private_mode_counts() {
-        let signals = signals_for(&event("USAGE_TICK", &[], EventFacts::UsageTick(tick("gw-0"))));
-        assert!(!signals.iter().any(|s| matches!(s, UsageSignal::Count { metric: CounterMetric::Messages, .. })));
+        let signals = signals_for(&event(
+            "USAGE_TICK",
+            &[],
+            EventFacts::UsageTick(tick("gw-0")),
+        ));
+        assert!(!signals.iter().any(|s| matches!(
+            s,
+            UsageSignal::Count {
+                metric: CounterMetric::Messages,
+                ..
+            }
+        )));
     }
 
     #[test]
     fn usage_tick_reports_node_gauges() {
-        let facts = UsageTick { sessions_online: Some(120), voice_users: Some(8), active_calls: Some(2), ..tick("node-1") };
+        let facts = UsageTick {
+            sessions_online: Some(120),
+            voice_users: Some(8),
+            active_calls: Some(2),
+            ..tick("node-1")
+        };
         let signals = signals_for(&event("USAGE_TICK", &[], EventFacts::UsageTick(facts)));
         assert!(signals.contains(&gauge(GaugeMetric::SessionsOnline, "node-1", 120.0)));
         assert!(signals.contains(&gauge(GaugeMetric::VoiceUsers, "node-1", 8.0)));
@@ -155,35 +237,69 @@ mod tests {
 
     #[test]
     fn absent_gauges_are_not_reported() {
-        let signals = signals_for(&event("USAGE_TICK", &[], EventFacts::UsageTick(tick("gw-0"))));
-        assert!(!signals.iter().any(|s| matches!(s, UsageSignal::Gauge { .. })));
+        let signals = signals_for(&event(
+            "USAGE_TICK",
+            &[],
+            EventFacts::UsageTick(tick("gw-0")),
+        ));
+        assert!(
+            !signals
+                .iter()
+                .any(|s| matches!(s, UsageSignal::Gauge { .. }))
+        );
     }
 
     #[test]
     fn voice_users_accrue_participant_seconds_per_region() {
-        let facts = UsageTick { voice_users: Some(8), voice_region: Some("nl-home".into()), ..tick("voice-nl-1") };
+        let facts = UsageTick {
+            voice_users: Some(8),
+            voice_region: Some("nl-home".into()),
+            ..tick("voice-nl-1")
+        };
         let signals = signals_for(&event("USAGE_TICK", &[], EventFacts::UsageTick(facts)));
         assert!(signals.contains(&count(CounterMetric::VoiceSeconds, "nl-home", 80)));
     }
 
     #[test]
     fn voice_seconds_fall_back_to_unknown_region() {
-        let facts = UsageTick { voice_users: Some(1), ..tick("voice-x") };
+        let facts = UsageTick {
+            voice_users: Some(1),
+            ..tick("voice-x")
+        };
         let signals = signals_for(&event("USAGE_TICK", &[], EventFacts::UsageTick(facts)));
         assert!(signals.contains(&count(CounterMetric::VoiceSeconds, UNKNOWN_REGION, 10)));
     }
 
     #[test]
     fn idle_voice_nodes_accrue_no_voice_seconds() {
-        let facts = UsageTick { voice_users: Some(0), ..tick("voice-x") };
+        let facts = UsageTick {
+            voice_users: Some(0),
+            ..tick("voice-x")
+        };
         let signals = signals_for(&event("USAGE_TICK", &[], EventFacts::UsageTick(facts)));
-        assert!(!signals.iter().any(|s| matches!(s, UsageSignal::Count { metric: CounterMetric::VoiceSeconds, .. })));
+        assert!(!signals.iter().any(|s| matches!(
+            s,
+            UsageSignal::Count {
+                metric: CounterMetric::VoiceSeconds,
+                ..
+            }
+        )));
     }
 
     #[test]
     fn voice_quality_is_forwarded_as_a_sample() {
-        let sample = VoiceQualitySample { region: "nl-home".into(), jitter_ms: 4.0, loss_pct: 0.5, rtt_ms: 30.0, bitrate_kbps: 64.0 };
-        let signals = signals_for(&event("VOICE_QUALITY", &["42"], EventFacts::VoiceQuality(sample.clone())));
+        let sample = VoiceQualitySample {
+            region: "nl-home".into(),
+            jitter_ms: 4.0,
+            loss_pct: 0.5,
+            rtt_ms: 30.0,
+            bitrate_kbps: 64.0,
+        };
+        let signals = signals_for(&event(
+            "VOICE_QUALITY",
+            &["42"],
+            EventFacts::VoiceQuality(sample.clone()),
+        ));
         assert!(signals.contains(&UsageSignal::Quality(sample)));
         assert!(signals.contains(&active("42")));
     }

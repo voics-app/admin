@@ -19,13 +19,21 @@ pub async fn readyz(State(state): State<AppState>) -> Response {
     if state.readiness.is_reachable().await {
         axum::Json(json!({ "status": "ready" })).into_response()
     } else {
-        (StatusCode::SERVICE_UNAVAILABLE, axum::Json(json!({ "status": "database unreachable" }))).into_response()
+        (
+            StatusCode::SERVICE_UNAVAILABLE,
+            axum::Json(json!({ "status": "database unreachable" })),
+        )
+            .into_response()
     }
 }
 
 pub async fn metrics(State(state): State<AppState>) -> Response {
     match &state.prometheus {
-        Some(handle) => ([("content-type", "text/plain; version=0.0.4")], handle.render()).into_response(),
+        Some(handle) => (
+            [("content-type", "text/plain; version=0.0.4")],
+            handle.render(),
+        )
+            .into_response(),
         None => StatusCode::NOT_FOUND.into_response(),
     }
 }
@@ -41,6 +49,7 @@ pub async fn track_requests(request: Request, next: Next) -> Response {
     let response = next.run(request).await;
     let status = response.status().as_u16().to_string();
     metrics::counter!("http_requests_total", "method" => method.clone(), "route" => route.clone(), "status" => status).increment(1);
-    metrics::histogram!("http_request_duration_seconds", "method" => method, "route" => route).record(started.elapsed().as_secs_f64());
+    metrics::histogram!("http_request_duration_seconds", "method" => method, "route" => route)
+        .record(started.elapsed().as_secs_f64());
     response
 }

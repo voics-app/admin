@@ -52,8 +52,20 @@ pub struct PartitionPump {
 }
 
 impl PartitionPump {
-    pub fn new(topic: &str, partition: i32, next_offset: i64, source: Arc<dyn RecordSource>, ingest: Arc<IngestUsageEvents>) -> Self {
-        Self { topic: topic.to_owned(), partition, next_offset, source, ingest }
+    pub fn new(
+        topic: &str,
+        partition: i32,
+        next_offset: i64,
+        source: Arc<dyn RecordSource>,
+        ingest: Arc<IngestUsageEvents>,
+    ) -> Self {
+        Self {
+            topic: topic.to_owned(),
+            partition,
+            next_offset,
+            source,
+            ingest,
+        }
     }
 
     pub fn next_offset(&self) -> i64 {
@@ -90,14 +102,23 @@ impl PartitionPump {
             })
             .collect();
 
-        let checkpoint = StreamCheckpoint { topic: self.topic.clone(), partition: self.partition, next_offset: last_offset + 1 };
+        let checkpoint = StreamCheckpoint {
+            topic: self.topic.clone(),
+            partition: self.partition,
+            next_offset: last_offset + 1,
+        };
         let outcome = self
             .ingest
             .execute(&events, Some(&checkpoint))
             .await
             .map_err(|e| PumpError::Commit(e.to_string()))?;
         self.next_offset = checkpoint.next_offset;
-        Ok(PumpReport { fetched: records.len(), counted: outcome.counted, duplicates: outcome.duplicates, undecodable })
+        Ok(PumpReport {
+            fetched: records.len(),
+            counted: outcome.counted,
+            duplicates: outcome.duplicates,
+            undecodable,
+        })
     }
 }
 
@@ -115,7 +136,11 @@ mod tests {
 
     impl ScriptedSource {
         fn new(responses: Vec<Result<Vec<FetchedRecord>, FetchError>>) -> Arc<Self> {
-            Arc::new(Self { responses: Mutex::new(responses), requested: Mutex::new(vec![]), earliest: 500 })
+            Arc::new(Self {
+                responses: Mutex::new(responses),
+                requested: Mutex::new(vec![]),
+                earliest: 500,
+            })
         }
     }
 
@@ -124,7 +149,11 @@ mod tests {
         async fn fetch(&self, offset: i64) -> Result<Vec<FetchedRecord>, FetchError> {
             self.requested.lock().unwrap().push(offset);
             let mut responses = self.responses.lock().unwrap();
-            if responses.is_empty() { Ok(vec![]) } else { responses.remove(0) }
+            if responses.is_empty() {
+                Ok(vec![])
+            } else {
+                responses.remove(0)
+            }
         }
 
         async fn earliest_offset(&self) -> Result<i64, FetchError> {
@@ -133,29 +162,59 @@ mod tests {
     }
 
     fn record(offset: i64, id: &str) -> FetchedRecord {
-        let json = format!(r#"{{"id":"{id}","type":"MESSAGE_CREATE","v":1,"occurred_at":"2026-10-16T12:00:00Z","data":{{"author":{{"id":"42"}}}}}}"#);
+        let json = format!(
+            r#"{{"id":"{id}","type":"MESSAGE_CREATE","v":1,"occurred_at":"2026-10-16T12:00:00Z","data":{{"author":{{"id":"42"}}}}}}"#
+        );
         (offset, Some(json.into_bytes()))
     }
 
     fn pump(source: Arc<ScriptedSource>, store: Arc<FakeRollups>) -> PartitionPump {
-        PartitionPump::new("discordy.message.v1", 3, 10, source, Arc::new(IngestUsageEvents::new(store)))
+        PartitionPump::new(
+            "discordy.message.v1",
+            3,
+            10,
+            source,
+            Arc::new(IngestUsageEvents::new(store)),
+        )
     }
 
     #[tokio::test]
     async fn commits_a_batch_with_the_offset_after_its_last_record() {
         let store = Arc::new(FakeRollups::default());
-        let mut pump = pump(ScriptedSource::new(vec![Ok(vec![record(10, "a"), record(11, "b")])]), store.clone());
+        let mut pump = pump(
+            ScriptedSource::new(vec![Ok(vec![record(10, "a"), record(11, "b")])]),
+            store.clone(),
+        );
         let report = pump.step().await.unwrap();
-        assert_eq!(report, PumpReport { fetched: 2, counted: 2, duplicates: 0, undecodable: 0 });
+        assert_eq!(
+            report,
+            PumpReport {
+                fetched: 2,
+                counted: 2,
+                duplicates: 0,
+                undecodable: 0
+            }
+        );
         assert_eq!(pump.next_offset(), 12);
         let checkpoint = store.applied.lock().unwrap()[0].1.clone().unwrap();
-        assert_eq!((checkpoint.topic.as_str(), checkpoint.partition, checkpoint.next_offset), ("discordy.message.v1", 3, 12));
+        assert_eq!(
+            (
+                checkpoint.topic.as_str(),
+                checkpoint.partition,
+                checkpoint.next_offset
+            ),
+            ("discordy.message.v1", 3, 12)
+        );
     }
 
     #[tokio::test]
     async fn undecodable_records_are_skipped_but_their_offsets_are_consumed() {
         let store = Arc::new(FakeRollups::default());
-        let source = ScriptedSource::new(vec![Ok(vec![(10, Some(b"garbage".to_vec())), (11, None), record(12, "c")])]);
+        let source = ScriptedSource::new(vec![Ok(vec![
+            (10, Some(b"garbage".to_vec())),
+            (11, None),
+            record(12, "c"),
+        ])]);
         let mut pump = pump(source, store);
         let report = pump.step().await.unwrap();
         assert_eq!((report.counted, report.undecodable), (1, 2));
@@ -174,7 +233,10 @@ mod tests {
     #[tokio::test]
     async fn a_pruned_offset_restarts_from_the_earliest_retained_record() {
         let store = Arc::new(FakeRollups::default());
-        let source = ScriptedSource::new(vec![Err(FetchError::OffsetOutOfRange), Ok(vec![record(500, "a")])]);
+        let source = ScriptedSource::new(vec![
+            Err(FetchError::OffsetOutOfRange),
+            Ok(vec![record(500, "a")]),
+        ]);
         let mut pump = pump(source.clone(), store);
         pump.step().await.unwrap();
         pump.step().await.unwrap();

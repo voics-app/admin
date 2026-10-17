@@ -27,10 +27,17 @@ pub struct IngestUsageEvents {
 
 impl IngestUsageEvents {
     pub fn new(writer: Arc<dyn RollupWriter>) -> Self {
-        Self { writer, recent: Mutex::new(RecentIds::new(DEDUP_WINDOW)) }
+        Self {
+            writer,
+            recent: Mutex::new(RecentIds::new(DEDUP_WINDOW)),
+        }
     }
 
-    pub async fn execute(&self, events: &[ObservedEvent], checkpoint: Option<&StreamCheckpoint>) -> PortResult<IngestOutcome> {
+    pub async fn execute(
+        &self,
+        events: &[ObservedEvent],
+        checkpoint: Option<&StreamCheckpoint>,
+    ) -> PortResult<IngestOutcome> {
         let fresh = self.fresh_events(events);
         let mut delta = RollupDelta::default();
         for event in &fresh {
@@ -42,11 +49,17 @@ impl IngestUsageEvents {
             self.writer.apply(&delta, checkpoint).await?;
         }
         self.remember(&fresh);
-        Ok(IngestOutcome { counted: fresh.len(), duplicates: events.len() - fresh.len() })
+        Ok(IngestOutcome {
+            counted: fresh.len(),
+            duplicates: events.len() - fresh.len(),
+        })
     }
 
     fn fresh_events<'a>(&self, events: &'a [ObservedEvent]) -> Vec<&'a ObservedEvent> {
-        let recent = self.recent.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let recent = self
+            .recent
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let mut in_batch = HashSet::new();
         events
             .iter()
@@ -55,7 +68,10 @@ impl IngestUsageEvents {
     }
 
     fn remember(&self, events: &[&ObservedEvent]) {
-        let mut recent = self.recent.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let mut recent = self
+            .recent
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         for event in events {
             recent.first_sighting(&event.id);
         }
@@ -79,13 +95,20 @@ mod tests {
     }
 
     fn checkpoint(offset: i64) -> StreamCheckpoint {
-        StreamCheckpoint { topic: "discordy.message.v1".into(), partition: 0, next_offset: offset }
+        StreamCheckpoint {
+            topic: "discordy.message.v1".into(),
+            partition: 0,
+            next_offset: offset,
+        }
     }
 
     fn standard_messages(delta: &RollupDelta) -> i64 {
         delta
             .counters()
-            .filter(|(k, _)| k.metric == "messages" && k.granularity == crate::domain::granularity::Granularity::Minute)
+            .filter(|(k, _)| {
+                k.metric == "messages"
+                    && k.granularity == crate::domain::granularity::Granularity::Minute
+            })
             .map(|(_, v)| v)
             .sum()
     }
@@ -94,8 +117,17 @@ mod tests {
     async fn counts_events_and_commits_the_checkpoint_with_them() {
         let store = Arc::new(FakeRollups::default());
         let ingest = IngestUsageEvents::new(store.clone());
-        let outcome = ingest.execute(&[message("a"), message("b")], Some(&checkpoint(2))).await.unwrap();
-        assert_eq!(outcome, IngestOutcome { counted: 2, duplicates: 0 });
+        let outcome = ingest
+            .execute(&[message("a"), message("b")], Some(&checkpoint(2)))
+            .await
+            .unwrap();
+        assert_eq!(
+            outcome,
+            IngestOutcome {
+                counted: 2,
+                duplicates: 0
+            }
+        );
         let applied = store.applied.lock().unwrap();
         assert_eq!(applied.len(), 1);
         assert_eq!(standard_messages(&applied[0].0), 2);
@@ -106,9 +138,21 @@ mod tests {
     async fn redelivered_events_are_not_counted_twice() {
         let store = Arc::new(FakeRollups::default());
         let ingest = IngestUsageEvents::new(store.clone());
-        ingest.execute(&[message("a")], Some(&checkpoint(1))).await.unwrap();
-        let outcome = ingest.execute(&[message("a"), message("b")], Some(&checkpoint(3))).await.unwrap();
-        assert_eq!(outcome, IngestOutcome { counted: 1, duplicates: 1 });
+        ingest
+            .execute(&[message("a")], Some(&checkpoint(1)))
+            .await
+            .unwrap();
+        let outcome = ingest
+            .execute(&[message("a"), message("b")], Some(&checkpoint(3)))
+            .await
+            .unwrap();
+        assert_eq!(
+            outcome,
+            IngestOutcome {
+                counted: 1,
+                duplicates: 1
+            }
+        );
         assert_eq!(standard_messages(&store.applied.lock().unwrap()[1].0), 1);
     }
 
@@ -116,7 +160,10 @@ mod tests {
     async fn duplicates_within_one_batch_are_counted_once() {
         let store = Arc::new(FakeRollups::default());
         let ingest = IngestUsageEvents::new(store.clone());
-        let outcome = ingest.execute(&[message("a"), message("a")], None).await.unwrap();
+        let outcome = ingest
+            .execute(&[message("a"), message("a")], None)
+            .await
+            .unwrap();
         assert_eq!(outcome.duplicates, 1);
         assert_eq!(standard_messages(&store.applied.lock().unwrap()[0].0), 1);
     }
@@ -136,8 +183,14 @@ mod tests {
     async fn an_all_duplicate_batch_still_advances_the_checkpoint() {
         let store = Arc::new(FakeRollups::default());
         let ingest = IngestUsageEvents::new(store.clone());
-        ingest.execute(&[message("a")], Some(&checkpoint(1))).await.unwrap();
-        ingest.execute(&[message("a")], Some(&checkpoint(2))).await.unwrap();
+        ingest
+            .execute(&[message("a")], Some(&checkpoint(1)))
+            .await
+            .unwrap();
+        ingest
+            .execute(&[message("a")], Some(&checkpoint(2)))
+            .await
+            .unwrap();
         let applied = store.applied.lock().unwrap();
         assert!(applied[1].0.is_empty());
         assert_eq!(applied[1].1, Some(checkpoint(2)));

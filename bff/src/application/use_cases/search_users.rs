@@ -17,7 +17,12 @@ impl SearchUsers {
         Self { api }
     }
 
-    pub async fn execute(&self, query: &str, limit: Option<u32>, after: Option<String>) -> AppResult<UserPage> {
+    pub async fn execute(
+        &self,
+        query: &str,
+        limit: Option<u32>,
+        after: Option<String>,
+    ) -> AppResult<UserPage> {
         let query = UserQuery {
             query: clean_query(query),
             limit: limit.unwrap_or(DEFAULT_PAGE_SIZE).clamp(1, MAX_PAGE_SIZE),
@@ -41,11 +46,31 @@ mod tests {
     async fn trims_the_query_and_clamps_the_page_size() {
         let api = Arc::new(FakeApi::default());
         let use_case = SearchUsers::new(api.clone());
-        use_case.execute("  alice ", Some(500), Some(" ".into())).await.unwrap();
-        use_case.execute("bob", None, Some("123".into())).await.unwrap();
+        use_case
+            .execute("  alice ", Some(500), Some(" ".into()))
+            .await
+            .unwrap();
+        use_case
+            .execute("bob", None, Some("123".into()))
+            .await
+            .unwrap();
         let queries = api.user_queries.lock().unwrap();
-        assert_eq!(queries[0], UserQuery { query: "alice".into(), limit: MAX_PAGE_SIZE, after: None });
-        assert_eq!(queries[1], UserQuery { query: "bob".into(), limit: DEFAULT_PAGE_SIZE, after: Some("123".into()) });
+        assert_eq!(
+            queries[0],
+            UserQuery {
+                query: "alice".into(),
+                limit: MAX_PAGE_SIZE,
+                after: None
+            }
+        );
+        assert_eq!(
+            queries[1],
+            UserQuery {
+                query: "bob".into(),
+                limit: DEFAULT_PAGE_SIZE,
+                after: Some("123".into())
+            }
+        );
     }
 
     #[test]

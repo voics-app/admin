@@ -90,12 +90,20 @@ impl RollupDelta {
     /// Folds one signal observed at `at` into every granularity.
     pub fn record(&mut self, at: DateTime<Utc>, signal: &UsageSignal) {
         match signal {
-            UsageSignal::Count { metric, dimension, amount } => {
+            UsageSignal::Count {
+                metric,
+                dimension,
+                amount,
+            } => {
                 for key in series_keys(metric.as_str(), dimension, at) {
                     *self.counters.entry(key).or_insert(0) += amount;
                 }
             }
-            UsageSignal::Gauge { metric, dimension, value } => {
+            UsageSignal::Gauge {
+                metric,
+                dimension,
+                value,
+            } => {
                 for key in series_keys(metric.as_str(), dimension, at) {
                     let peak = self.gauges.entry(key).or_insert(*value);
                     *peak = peak.max(*value);
@@ -118,7 +126,10 @@ impl RollupDelta {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.counters.is_empty() && self.gauges.is_empty() && self.active_users.is_empty() && self.quality.is_empty()
+        self.counters.is_empty()
+            && self.gauges.is_empty()
+            && self.active_users.is_empty()
+            && self.quality.is_empty()
     }
 
     /// Increments to add to counter cells.
@@ -142,13 +153,19 @@ impl RollupDelta {
     }
 }
 
-fn series_keys<'a>(metric: &'static str, dimension: &'a str, at: DateTime<Utc>) -> impl Iterator<Item = SeriesKey> + 'a {
-    Granularity::ALL.into_iter().map(move |granularity| SeriesKey {
-        metric,
-        dimension: dimension.to_owned(),
-        granularity,
-        bucket: granularity.bucket_start(at),
-    })
+fn series_keys<'a>(
+    metric: &'static str,
+    dimension: &'a str,
+    at: DateTime<Utc>,
+) -> impl Iterator<Item = SeriesKey> + 'a {
+    Granularity::ALL
+        .into_iter()
+        .map(move |granularity| SeriesKey {
+            metric,
+            dimension: dimension.to_owned(),
+            granularity,
+            bucket: granularity.bucket_start(at),
+        })
 }
 
 #[cfg(test)]
@@ -161,20 +178,44 @@ mod tests {
         Utc.with_ymd_and_hms(2026, 10, 16, h, m, 15).unwrap()
     }
 
-    fn key(metric: &'static str, dimension: &str, granularity: Granularity, bucket: DateTime<Utc>) -> SeriesKey {
-        SeriesKey { metric, dimension: dimension.into(), granularity, bucket: granularity.bucket_start(bucket) }
+    fn key(
+        metric: &'static str,
+        dimension: &str,
+        granularity: Granularity,
+        bucket: DateTime<Utc>,
+    ) -> SeriesKey {
+        SeriesKey {
+            metric,
+            dimension: dimension.into(),
+            granularity,
+            bucket: granularity.bucket_start(bucket),
+        }
     }
 
     fn messages(amount: i64) -> UsageSignal {
-        UsageSignal::Count { metric: CounterMetric::Messages, dimension: "standard".into(), amount }
+        UsageSignal::Count {
+            metric: CounterMetric::Messages,
+            dimension: "standard".into(),
+            amount,
+        }
     }
 
     fn sessions(node: &str, value: f64) -> UsageSignal {
-        UsageSignal::Gauge { metric: GaugeMetric::SessionsOnline, dimension: node.into(), value }
+        UsageSignal::Gauge {
+            metric: GaugeMetric::SessionsOnline,
+            dimension: node.into(),
+            value,
+        }
     }
 
     fn sample(jitter: f64, loss: f64) -> VoiceQualitySample {
-        VoiceQualitySample { region: "nl-home".into(), jitter_ms: jitter, loss_pct: loss, rtt_ms: 20.0, bitrate_kbps: 64.0 }
+        VoiceQualitySample {
+            region: "nl-home".into(),
+            jitter_ms: jitter,
+            loss_pct: loss,
+            rtt_ms: 20.0,
+            bitrate_kbps: 64.0,
+        }
     }
 
     fn counter(delta: &RollupDelta, k: &SeriesKey) -> Option<i64> {
@@ -195,7 +236,11 @@ mod tests {
         let mut delta = RollupDelta::default();
         delta.record(at(13, 37), &messages(1));
         for g in Granularity::ALL {
-            assert_eq!(counter(&delta, &key("messages", "standard", g, at(13, 37))), Some(1), "{g:?}");
+            assert_eq!(
+                counter(&delta, &key("messages", "standard", g, at(13, 37))),
+                Some(1),
+                "{g:?}"
+            );
         }
         assert!(!delta.is_empty());
     }
@@ -205,7 +250,13 @@ mod tests {
         let mut delta = RollupDelta::default();
         delta.record(at(13, 37), &messages(2));
         delta.record(at(13, 37), &messages(3));
-        assert_eq!(counter(&delta, &key("messages", "standard", Granularity::Minute, at(13, 37))), Some(5));
+        assert_eq!(
+            counter(
+                &delta,
+                &key("messages", "standard", Granularity::Minute, at(13, 37))
+            ),
+            Some(5)
+        );
     }
 
     #[test]
@@ -213,9 +264,27 @@ mod tests {
         let mut delta = RollupDelta::default();
         delta.record(at(13, 1), &messages(1));
         delta.record(at(13, 59), &messages(1));
-        assert_eq!(counter(&delta, &key("messages", "standard", Granularity::Minute, at(13, 1))), Some(1));
-        assert_eq!(counter(&delta, &key("messages", "standard", Granularity::Minute, at(13, 59))), Some(1));
-        assert_eq!(counter(&delta, &key("messages", "standard", Granularity::Hour, at(13, 0))), Some(2));
+        assert_eq!(
+            counter(
+                &delta,
+                &key("messages", "standard", Granularity::Minute, at(13, 1))
+            ),
+            Some(1)
+        );
+        assert_eq!(
+            counter(
+                &delta,
+                &key("messages", "standard", Granularity::Minute, at(13, 59))
+            ),
+            Some(1)
+        );
+        assert_eq!(
+            counter(
+                &delta,
+                &key("messages", "standard", Granularity::Hour, at(13, 0))
+            ),
+            Some(2)
+        );
     }
 
     #[test]
@@ -224,7 +293,13 @@ mod tests {
         delta.record(at(13, 1), &sessions("gw-0", 10.0));
         delta.record(at(13, 1), &sessions("gw-0", 30.0));
         delta.record(at(13, 1), &sessions("gw-0", 20.0));
-        assert_eq!(gauge(&delta, &key("sessions_online", "gw-0", Granularity::Minute, at(13, 1))), Some(30.0));
+        assert_eq!(
+            gauge(
+                &delta,
+                &key("sessions_online", "gw-0", Granularity::Minute, at(13, 1))
+            ),
+            Some(30.0)
+        );
     }
 
     #[test]
@@ -232,17 +307,28 @@ mod tests {
         let mut delta = RollupDelta::default();
         delta.record(at(13, 1), &sessions("gw-0", 10.0));
         delta.record(at(13, 1), &sessions("gw-1", 5.0));
-        assert_eq!(gauge(&delta, &key("sessions_online", "gw-1", Granularity::Hour, at(13, 1))), Some(5.0));
+        assert_eq!(
+            gauge(
+                &delta,
+                &key("sessions_online", "gw-1", Granularity::Hour, at(13, 1))
+            ),
+            Some(5.0)
+        );
     }
 
     #[test]
     fn active_users_are_distinct_per_utc_day() {
         let mut delta = RollupDelta::default();
-        let user = UsageSignal::ActiveUser { user_id: "42".into() };
+        let user = UsageSignal::ActiveUser {
+            user_id: "42".into(),
+        };
         delta.record(at(1, 0), &user);
         delta.record(at(23, 0), &user);
         delta.record(Utc.with_ymd_and_hms(2026, 10, 17, 0, 5, 0).unwrap(), &user);
-        let days: Vec<_> = delta.active_users().map(|(day, _)| day.to_string()).collect();
+        let days: Vec<_> = delta
+            .active_users()
+            .map(|(day, _)| day.to_string())
+            .collect();
         assert_eq!(days, vec!["2026-10-16", "2026-10-17"]);
     }
 
@@ -251,8 +337,16 @@ mod tests {
         let mut delta = RollupDelta::default();
         delta.record(at(13, 1), &UsageSignal::Quality(sample(4.0, 1.0)));
         delta.record(at(13, 1), &UsageSignal::Quality(sample(6.0, 3.0)));
-        let quality_key = QualityKey { region: "nl-home".into(), granularity: Granularity::Minute, bucket: Granularity::Minute.bucket_start(at(13, 1)) };
-        let totals = delta.quality().find(|(k, _)| **k == quality_key).map(|(_, t)| *t).unwrap();
+        let quality_key = QualityKey {
+            region: "nl-home".into(),
+            granularity: Granularity::Minute,
+            bucket: Granularity::Minute.bucket_start(at(13, 1)),
+        };
+        let totals = delta
+            .quality()
+            .find(|(k, _)| **k == quality_key)
+            .map(|(_, t)| *t)
+            .unwrap();
         assert_eq!(totals.samples, 2);
         let averages = totals.averages().unwrap();
         assert_eq!(averages.jitter_ms, 5.0);

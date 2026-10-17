@@ -20,7 +20,10 @@ impl KafkaPartitionSource {
 
 fn classify(error: KafkaError) -> FetchError {
     match error {
-        KafkaError::ServerError { protocol_error: ProtocolError::OffsetOutOfRange, .. } => FetchError::OffsetOutOfRange,
+        KafkaError::ServerError {
+            protocol_error: ProtocolError::OffsetOutOfRange,
+            ..
+        } => FetchError::OffsetOutOfRange,
         other => FetchError::Transient(other.to_string()),
     }
 }
@@ -28,12 +31,23 @@ fn classify(error: KafkaError) -> FetchError {
 #[async_trait]
 impl RecordSource for KafkaPartitionSource {
     async fn fetch(&self, offset: i64) -> Result<Vec<FetchedRecord>, FetchError> {
-        let (records, _high_watermark) = self.client.fetch_records(offset, 1..MAX_FETCH_BYTES, MAX_WAIT_MS).await.map_err(classify)?;
+        let (records, _high_watermark) = self
+            .client
+            .fetch_records(offset, 1..MAX_FETCH_BYTES, MAX_WAIT_MS)
+            .await
+            .map_err(classify)?;
         // Compressed batches can include records before the requested offset.
-        Ok(records.into_iter().filter(|r| r.offset >= offset).map(|r| (r.offset, r.record.value)).collect())
+        Ok(records
+            .into_iter()
+            .filter(|r| r.offset >= offset)
+            .map(|r| (r.offset, r.record.value))
+            .collect())
     }
 
     async fn earliest_offset(&self) -> Result<i64, FetchError> {
-        self.client.get_offset(OffsetAt::Earliest).await.map_err(classify)
+        self.client
+            .get_offset(OffsetAt::Earliest)
+            .await
+            .map_err(classify)
     }
 }

@@ -2,7 +2,9 @@ use async_trait::async_trait;
 use chrono::{DateTime, Duration, NaiveDate, Utc};
 use sqlx::{PgPool, Postgres, Transaction};
 
-use crate::application::ports::rollups::{ActiveUsersPoint, DimensionPoint, RollupReader, RollupWriter, StreamCheckpoint};
+use crate::application::ports::rollups::{
+    ActiveUsersPoint, DimensionPoint, RollupReader, RollupWriter, StreamCheckpoint,
+};
 use crate::application::ports::{PortError, PortResult};
 use crate::domain::granularity::Granularity;
 use crate::domain::metric::{CounterMetric, GaugeMetric};
@@ -78,7 +80,11 @@ impl PgRollupStore {
         for granularity in Granularity::ALL {
             if let Some(keep) = retention(granularity) {
                 let sql = format!("DELETE FROM {} WHERE bucket < $1", table(granularity));
-                sqlx::query(&sql).bind(now - keep).execute(&self.pool).await.map_err(db_error)?;
+                sqlx::query(&sql)
+                    .bind(now - keep)
+                    .execute(&self.pool)
+                    .await
+                    .map_err(db_error)?;
             }
         }
         sqlx::query("DELETE FROM active_users_daily WHERE day < $1")
@@ -89,7 +95,12 @@ impl PgRollupStore {
         Ok(())
     }
 
-    async fn upsert(tx: &mut Transaction<'_, Postgres>, granularity: Granularity, columns: &Columns, merge: Merge) -> Result<(), sqlx::Error> {
+    async fn upsert(
+        tx: &mut Transaction<'_, Postgres>,
+        granularity: Granularity,
+        columns: &Columns,
+        merge: Merge,
+    ) -> Result<(), sqlx::Error> {
         if columns.metrics.is_empty() {
             return Ok(());
         }
@@ -113,21 +124,44 @@ impl PgRollupStore {
         Ok(())
     }
 
-    async fn series(&self, metric: &str, granularity: Granularity, from: DateTime<Utc>, to: DateTime<Utc>) -> PortResult<Vec<DimensionPoint>> {
+    async fn series(
+        &self,
+        metric: &str,
+        granularity: Granularity,
+        from: DateTime<Utc>,
+        to: DateTime<Utc>,
+    ) -> PortResult<Vec<DimensionPoint>> {
         let sql = format!(
             "SELECT bucket, dimension, value FROM {} WHERE metric = $1 AND bucket >= $2 AND bucket < $3 ORDER BY bucket, dimension",
             table(granularity)
         );
-        let rows: Vec<(DateTime<Utc>, String, f64)> =
-            sqlx::query_as(&sql).bind(metric).bind(from).bind(to).fetch_all(&self.pool).await.map_err(db_error)?;
-        Ok(rows.into_iter().map(|(bucket, dimension, value)| DimensionPoint { bucket, dimension, value }).collect())
+        let rows: Vec<(DateTime<Utc>, String, f64)> = sqlx::query_as(&sql)
+            .bind(metric)
+            .bind(from)
+            .bind(to)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(db_error)?;
+        Ok(rows
+            .into_iter()
+            .map(|(bucket, dimension, value)| DimensionPoint {
+                bucket,
+                dimension,
+                value,
+            })
+            .collect())
     }
 }
 
 fn split_by_granularity<'a>(cells: impl Iterator<Item = (&'a SeriesKey, f64)>) -> [Columns; 3] {
     let mut columns: [Columns; 3] = Default::default();
     for (key, value) in cells {
-        columns[granularity_index(key.granularity)].push(key.metric, &key.dimension, key.bucket, value);
+        columns[granularity_index(key.granularity)].push(
+            key.metric,
+            &key.dimension,
+            key.bucket,
+            value,
+        );
     }
     columns
 }
@@ -142,25 +176,45 @@ fn granularity_index(granularity: Granularity) -> usize {
 
 #[async_trait]
 impl RollupWriter for PgRollupStore {
-    async fn apply(&self, delta: &RollupDelta, checkpoint: Option<&StreamCheckpoint>) -> PortResult<()> {
+    async fn apply(
+        &self,
+        delta: &RollupDelta,
+        checkpoint: Option<&StreamCheckpoint>,
+    ) -> PortResult<()> {
         let counters = split_by_granularity(delta.counters().map(|(k, v)| (k, v as f64)));
         let gauges = split_by_granularity(delta.gauges());
         let mut quality: [Columns; 3] = Default::default();
         for (key, totals) in delta.quality() {
             let cols = &mut quality[granularity_index(key.granularity)];
-            cols.push(QUALITY_SAMPLES, &key.region, key.bucket, totals.samples as f64);
+            cols.push(
+                QUALITY_SAMPLES,
+                &key.region,
+                key.bucket,
+                totals.samples as f64,
+            );
             cols.push(QUALITY_JITTER, &key.region, key.bucket, totals.jitter_ms);
             cols.push(QUALITY_LOSS, &key.region, key.bucket, totals.loss_pct);
             cols.push(QUALITY_RTT, &key.region, key.bucket, totals.rtt_ms);
-            cols.push(QUALITY_BITRATE, &key.region, key.bucket, totals.bitrate_kbps);
+            cols.push(
+                QUALITY_BITRATE,
+                &key.region,
+                key.bucket,
+                totals.bitrate_kbps,
+            );
         }
 
         let mut tx = self.pool.begin().await.map_err(db_error)?;
         for granularity in Granularity::ALL {
             let i = granularity_index(granularity);
-            Self::upsert(&mut tx, granularity, &counters[i], Merge::Sum).await.map_err(db_error)?;
-            Self::upsert(&mut tx, granularity, &quality[i], Merge::Sum).await.map_err(db_error)?;
-            Self::upsert(&mut tx, granularity, &gauges[i], Merge::Peak).await.map_err(db_error)?;
+            Self::upsert(&mut tx, granularity, &counters[i], Merge::Sum)
+                .await
+                .map_err(db_error)?;
+            Self::upsert(&mut tx, granularity, &quality[i], Merge::Sum)
+                .await
+                .map_err(db_error)?;
+            Self::upsert(&mut tx, granularity, &gauges[i], Merge::Peak)
+                .await
+                .map_err(db_error)?;
         }
 
         let (days, users): (Vec<NaiveDate>, Vec<String>) = delta.active_users().cloned().unzip();
@@ -189,26 +243,44 @@ impl RollupWriter for PgRollupStore {
     }
 
     async fn checkpoint(&self, topic: &str, partition: i32) -> PortResult<Option<i64>> {
-        sqlx::query_scalar("SELECT next_offset FROM consumer_offsets WHERE topic = $1 AND partition = $2")
-            .bind(topic)
-            .bind(partition)
-            .fetch_optional(&self.pool)
-            .await
-            .map_err(db_error)
+        sqlx::query_scalar(
+            "SELECT next_offset FROM consumer_offsets WHERE topic = $1 AND partition = $2",
+        )
+        .bind(topic)
+        .bind(partition)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(db_error)
     }
 }
 
 #[async_trait]
 impl RollupReader for PgRollupStore {
-    async fn counters(&self, metric: CounterMetric, granularity: Granularity, from: DateTime<Utc>, to: DateTime<Utc>) -> PortResult<Vec<DimensionPoint>> {
+    async fn counters(
+        &self,
+        metric: CounterMetric,
+        granularity: Granularity,
+        from: DateTime<Utc>,
+        to: DateTime<Utc>,
+    ) -> PortResult<Vec<DimensionPoint>> {
         self.series(metric.as_str(), granularity, from, to).await
     }
 
-    async fn gauges(&self, metric: GaugeMetric, granularity: Granularity, from: DateTime<Utc>, to: DateTime<Utc>) -> PortResult<Vec<DimensionPoint>> {
+    async fn gauges(
+        &self,
+        metric: GaugeMetric,
+        granularity: Granularity,
+        from: DateTime<Utc>,
+        to: DateTime<Utc>,
+    ) -> PortResult<Vec<DimensionPoint>> {
         self.series(metric.as_str(), granularity, from, to).await
     }
 
-    async fn active_users(&self, from: NaiveDate, to: NaiveDate) -> PortResult<Vec<ActiveUsersPoint>> {
+    async fn active_users(
+        &self,
+        from: NaiveDate,
+        to: NaiveDate,
+    ) -> PortResult<Vec<ActiveUsersPoint>> {
         let rows: Vec<(NaiveDate, i64, i64)> = sqlx::query_as(
             "SELECT d::date, \
                 (SELECT count(*) FROM active_users_daily a WHERE a.day = d::date), \
@@ -222,11 +294,19 @@ impl RollupReader for PgRollupStore {
         .map_err(db_error)?;
         Ok(rows
             .into_iter()
-            .map(|(day, dau, mau)| ActiveUsersPoint { day, dau: dau.max(0) as u64, mau: mau.max(0) as u64 })
+            .map(|(day, dau, mau)| ActiveUsersPoint {
+                day,
+                dau: dau.max(0) as u64,
+                mau: mau.max(0) as u64,
+            })
             .collect())
     }
 
-    async fn quality_by_region(&self, from: DateTime<Utc>, to: DateTime<Utc>) -> PortResult<Vec<(String, QualityTotals)>> {
+    async fn quality_by_region(
+        &self,
+        from: DateTime<Utc>,
+        to: DateTime<Utc>,
+    ) -> PortResult<Vec<(String, QualityTotals)>> {
         let rows: Vec<(String, String, f64)> = sqlx::query_as(
             "SELECT dimension, metric, sum(value) FROM usage_rollup_minute \
              WHERE metric LIKE 'voice_quality.%' AND bucket >= $1 AND bucket < $2 GROUP BY dimension, metric ORDER BY dimension",

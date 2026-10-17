@@ -18,19 +18,29 @@ pub async fn serve(uri: Uri) -> Response {
         None if looks_like_file(path) => StatusCode::NOT_FOUND.into_response(),
         None => match WebAssets::get(INDEX) {
             Some(file) => asset_response(INDEX, file),
-            None => (StatusCode::SERVICE_UNAVAILABLE, "admin web build not embedded").into_response(),
+            None => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "admin web build not embedded",
+            )
+                .into_response(),
         },
     }
 }
 
 fn looks_like_file(path: &str) -> bool {
-    path.rsplit('/').next().is_some_and(|last| last.contains('.'))
+    path.rsplit('/')
+        .next()
+        .is_some_and(|last| last.contains('.'))
 }
 
 fn asset_response(path: &str, file: rust_embed::EmbeddedFile) -> Response {
     let mime = mime_guess::from_path(path).first_or_octet_stream();
     // Vite fingerprints everything under assets/, so those can be cached forever.
-    let cache = if path.starts_with("assets/") { "public, max-age=31536000, immutable" } else { "no-cache" };
+    let cache = if path.starts_with("assets/") {
+        "public, max-age=31536000, immutable"
+    } else {
+        "no-cache"
+    };
     let mut response = file.data.into_owned().into_response();
     let headers = response.headers_mut();
     if let Ok(value) = HeaderValue::from_str(mime.as_ref()) {

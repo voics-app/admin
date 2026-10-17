@@ -60,11 +60,30 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub fn new(ports: Ports, auth: AuthenticateAdmin, prometheus: Option<PrometheusHandle>) -> Self {
-        let Ports { api, gateway, rollups, voice, metrics, flags, audit, clock } = ports;
+    pub fn new(
+        ports: Ports,
+        auth: AuthenticateAdmin,
+        prometheus: Option<PrometheusHandle>,
+    ) -> Self {
+        let Ports {
+            api,
+            gateway,
+            rollups,
+            voice,
+            metrics,
+            flags,
+            audit,
+            clock,
+        } = ports;
         Self {
             auth: Arc::new(auth),
-            overview: Arc::new(GetOverview::new(api.clone(), gateway.clone(), rollups.clone(), voice.clone(), clock.clone())),
+            overview: Arc::new(GetOverview::new(
+                api.clone(),
+                gateway.clone(),
+                rollups.clone(),
+                voice.clone(),
+                clock.clone(),
+            )),
             usage: Arc::new(GetUsageReport::new(rollups.clone(), clock.clone())),
             voice_regions: Arc::new(ListVoiceRegions::new(voice, rollups.clone(), clock.clone())),
             voice_draining: Arc::new(SetVoiceNodeDraining::new(gateway.clone(), audit.clone())),

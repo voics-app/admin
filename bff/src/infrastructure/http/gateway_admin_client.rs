@@ -19,7 +19,10 @@ impl GatewayAdminClient {
 #[async_trait]
 impl GatewayAdmin for GatewayAdminClient {
     async fn stats(&self) -> PortResult<GatewayStats> {
-        let dto: GatewayStatsDto = self.client.get_json("/internal/v1/admin/stats", &[]).await?;
+        let dto: GatewayStatsDto = self
+            .client
+            .get_json("/internal/v1/admin/stats", &[])
+            .await?;
         Ok(GatewayStats {
             sessions_online: dto.sessions_online,
             sessions_by_node: dto.sessions_by_node,
@@ -29,10 +32,14 @@ impl GatewayAdmin for GatewayAdminClient {
     }
 
     async fn drain_voice_node(&self, node_id: &str) -> PortResult<()> {
-        self.client.post::<()>(&format!("/internal/v1/voice/nodes/{node_id}/drain"), None).await
+        self.client
+            .post::<()>(&format!("/internal/v1/voice/nodes/{node_id}/drain"), None)
+            .await
     }
 
     async fn undrain_voice_node(&self, node_id: &str) -> PortResult<()> {
-        self.client.post::<()>(&format!("/internal/v1/voice/nodes/{node_id}/undrain"), None).await
+        self.client
+            .post::<()>(&format!("/internal/v1/voice/nodes/{node_id}/undrain"), None)
+            .await
     }
 }

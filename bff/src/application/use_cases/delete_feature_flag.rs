@@ -40,17 +40,33 @@ mod tests {
     async fn deletes_and_audits() {
         let flags = Arc::new(FakeFlags::default());
         let audit = Arc::new(FakeAudit::default());
-        let change = FlagChange { key: "p2p_dms".into(), description: String::new(), enabled: false, rollout_percent: 0 };
-        UpsertFeatureFlag::new(flags.clone(), audit.clone()).execute("ops@discordy.dev", &change).await.unwrap();
-        DeleteFeatureFlag::new(flags.clone(), audit.clone()).execute("ops@discordy.dev", "p2p_dms").await.unwrap();
+        let change = FlagChange {
+            key: "p2p_dms".into(),
+            description: String::new(),
+            enabled: false,
+            rollout_percent: 0,
+        };
+        UpsertFeatureFlag::new(flags.clone(), audit.clone())
+            .execute("ops@discordy.dev", &change)
+            .await
+            .unwrap();
+        DeleteFeatureFlag::new(flags.clone(), audit.clone())
+            .execute("ops@discordy.dev", "p2p_dms")
+            .await
+            .unwrap();
         assert!(flags.flags.lock().unwrap().is_empty());
-        assert_eq!(audit.entries.lock().unwrap()[1].action, AuditAction::DeleteFeatureFlag);
+        assert_eq!(
+            audit.entries.lock().unwrap()[1].action,
+            AuditAction::DeleteFeatureFlag
+        );
     }
 
     #[tokio::test]
     async fn deleting_an_unknown_flag_is_not_found_and_not_audited() {
         let audit = Arc::new(FakeAudit::default());
-        let result = DeleteFeatureFlag::new(Arc::new(FakeFlags::default()), audit.clone()).execute("ops@discordy.dev", "missing").await;
+        let result = DeleteFeatureFlag::new(Arc::new(FakeFlags::default()), audit.clone())
+            .execute("ops@discordy.dev", "missing")
+            .await;
         assert_eq!(result, Err(AppError::NotFound));
         assert!(audit.entries.lock().unwrap().is_empty());
     }

@@ -9,7 +9,11 @@ pub struct AdminAllowlist {
 impl AdminAllowlist {
     /// Parses a comma-separated list. Whitespace and case are ignored; blanks are dropped.
     pub fn parse(csv: &str) -> Self {
-        let emails = csv.split(',').map(normalize).filter(|e| !e.is_empty()).collect();
+        let emails = csv
+            .split(',')
+            .map(normalize)
+            .filter(|e| !e.is_empty())
+            .collect();
         Self { emails }
     }
 

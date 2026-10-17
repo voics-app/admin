@@ -28,19 +28,36 @@ pub struct InternalClient {
 
 impl InternalClient {
     pub fn new(http: Client, base_url: &str, token: &str) -> Self {
-        Self { http, base_url: base_url.trim_end_matches('/').to_owned(), token: token.to_owned() }
+        Self {
+            http,
+            base_url: base_url.trim_end_matches('/').to_owned(),
+            token: token.to_owned(),
+        }
     }
 
     pub fn url(&self, path: &str) -> String {
         format!("{}{}", self.base_url, path)
     }
 
-    pub async fn get_json<T: DeserializeOwned>(&self, path: &str, query: &[(&str, String)]) -> PortResult<T> {
-        let response = self.send(self.http.get(self.url(path)).query(query)).await?;
-        response.json().await.map_err(|e| PortError::Unavailable(format!("invalid response from {path}: {e}")))
+    pub async fn get_json<T: DeserializeOwned>(
+        &self,
+        path: &str,
+        query: &[(&str, String)],
+    ) -> PortResult<T> {
+        let response = self
+            .send(self.http.get(self.url(path)).query(query))
+            .await?;
+        response
+            .json()
+            .await
+            .map_err(|e| PortError::Unavailable(format!("invalid response from {path}: {e}")))
     }
 
-    pub async fn post<B: Serialize + ?Sized>(&self, path: &str, body: Option<&B>) -> PortResult<()> {
+    pub async fn post<B: Serialize + ?Sized>(
+        &self,
+        path: &str,
+        body: Option<&B>,
+    ) -> PortResult<()> {
         let mut request = self.http.post(self.url(path));
         if let Some(body) = body {
             request = request.json(body);
@@ -57,10 +74,21 @@ impl InternalClient {
         match response.status() {
             status if status.is_success() => Ok(response),
             StatusCode::NOT_FOUND => Err(PortError::NotFound),
-            status if status.is_server_error() => Err(PortError::Unavailable(format!("upstream returned {status}"))),
+            status if status.is_server_error() => Err(PortError::Unavailable(format!(
+                "upstream returned {status}"
+            ))),
             status => {
-                let message = response.text().await.unwrap_or_default().chars().take(300).collect();
-                Err(PortError::Rejected { status: status.as_u16(), message })
+                let message = response
+                    .text()
+                    .await
+                    .unwrap_or_default()
+                    .chars()
+                    .take(300)
+                    .collect();
+                Err(PortError::Rejected {
+                    status: status.as_u16(),
+                    message,
+                })
             }
         }
     }

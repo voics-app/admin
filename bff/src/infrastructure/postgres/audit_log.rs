@@ -44,7 +44,16 @@ impl AuditLog for PgAuditLog {
         .map_err(db_error)?;
         Ok(rows
             .into_iter()
-            .map(|(id, at, actor_email, action, target, details)| AuditEntry { id, at, actor_email, action, target, details })
+            .map(
+                |(id, at, actor_email, action, target, details)| AuditEntry {
+                    id,
+                    at,
+                    actor_email,
+                    action,
+                    target,
+                    details,
+                },
+            )
             .collect())
     }
 }

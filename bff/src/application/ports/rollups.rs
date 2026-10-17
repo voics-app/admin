@@ -34,7 +34,11 @@ pub struct ActiveUsersPoint {
 /// Persists rollups. `apply` must be atomic: rollups and checkpoint commit together.
 #[async_trait]
 pub trait RollupWriter: Send + Sync {
-    async fn apply(&self, delta: &RollupDelta, checkpoint: Option<&StreamCheckpoint>) -> PortResult<()>;
+    async fn apply(
+        &self,
+        delta: &RollupDelta,
+        checkpoint: Option<&StreamCheckpoint>,
+    ) -> PortResult<()>;
     async fn checkpoint(&self, topic: &str, partition: i32) -> PortResult<Option<i64>>;
 }
 
@@ -42,12 +46,32 @@ pub trait RollupWriter: Send + Sync {
 #[async_trait]
 pub trait RollupReader: Send + Sync {
     /// Counter values per dimension for buckets in `[from, to)`.
-    async fn counters(&self, metric: CounterMetric, granularity: Granularity, from: DateTime<Utc>, to: DateTime<Utc>) -> PortResult<Vec<DimensionPoint>>;
+    async fn counters(
+        &self,
+        metric: CounterMetric,
+        granularity: Granularity,
+        from: DateTime<Utc>,
+        to: DateTime<Utc>,
+    ) -> PortResult<Vec<DimensionPoint>>;
     /// Peak gauge values per dimension for buckets in `[from, to)`.
-    async fn gauges(&self, metric: GaugeMetric, granularity: Granularity, from: DateTime<Utc>, to: DateTime<Utc>) -> PortResult<Vec<DimensionPoint>>;
+    async fn gauges(
+        &self,
+        metric: GaugeMetric,
+        granularity: Granularity,
+        from: DateTime<Utc>,
+        to: DateTime<Utc>,
+    ) -> PortResult<Vec<DimensionPoint>>;
     /// DAU and rolling MAU for each day in `[from, to]`.
-    async fn active_users(&self, from: NaiveDate, to: NaiveDate) -> PortResult<Vec<ActiveUsersPoint>>;
+    async fn active_users(
+        &self,
+        from: NaiveDate,
+        to: NaiveDate,
+    ) -> PortResult<Vec<ActiveUsersPoint>>;
     /// Voice-quality sums per region over minute buckets in `[from, to)`.
-    async fn quality_by_region(&self, from: DateTime<Utc>, to: DateTime<Utc>) -> PortResult<Vec<(String, QualityTotals)>>;
+    async fn quality_by_region(
+        &self,
+        from: DateTime<Utc>,
+        to: DateTime<Utc>,
+    ) -> PortResult<Vec<(String, QualityTotals)>>;
     async fn is_reachable(&self) -> bool;
 }

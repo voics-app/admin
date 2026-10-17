@@ -20,7 +20,11 @@ impl GetHealthSeries {
         Self { metrics, clock }
     }
 
-    pub async fn execute(&self, panel: HealthPanel, range: UsageRange) -> AppResult<Vec<LabelledSeries>> {
+    pub async fn execute(
+        &self,
+        panel: HealthPanel,
+        range: UsageRange,
+    ) -> AppResult<Vec<LabelledSeries>> {
         let to = self.clock.now();
         let from = to - range.duration();
         let step = (range.duration().num_seconds() / POINTS_PER_SERIES).max(MIN_STEP_SECONDS);
@@ -39,16 +43,30 @@ mod tests {
     async fn spreads_the_range_over_about_120_points() {
         let metrics = Arc::new(FakeMetrics::default());
         let use_case = GetHealthSeries::new(metrics.clone(), Arc::new(FixedClock::default()));
-        use_case.execute(HealthPanel::ErrorRatio, UsageRange::Day).await.unwrap();
+        use_case
+            .execute(HealthPanel::ErrorRatio, UsageRange::Day)
+            .await
+            .unwrap();
         let calls = metrics.series_calls.lock().unwrap();
-        assert_eq!(calls[0], (HealthPanel::ErrorRatio, fixed_now() - Duration::hours(24), fixed_now(), 720));
+        assert_eq!(
+            calls[0],
+            (
+                HealthPanel::ErrorRatio,
+                fixed_now() - Duration::hours(24),
+                fixed_now(),
+                720
+            )
+        );
     }
 
     #[tokio::test]
     async fn never_steps_finer_than_fifteen_seconds() {
         let metrics = Arc::new(FakeMetrics::default());
         let use_case = GetHealthSeries::new(metrics.clone(), Arc::new(FixedClock::default()));
-        use_case.execute(HealthPanel::RequestRate, UsageRange::Hour).await.unwrap();
+        use_case
+            .execute(HealthPanel::RequestRate, UsageRange::Hour)
+            .await
+            .unwrap();
         assert_eq!(metrics.series_calls.lock().unwrap()[0].3, 30);
     }
 }

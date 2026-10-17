@@ -11,7 +11,13 @@ pub enum UsageRange {
 }
 
 impl UsageRange {
-    pub const ALL: [UsageRange; 5] = [UsageRange::Hour, UsageRange::Day, UsageRange::Week, UsageRange::Month, UsageRange::Quarter];
+    pub const ALL: [UsageRange; 5] = [
+        UsageRange::Hour,
+        UsageRange::Day,
+        UsageRange::Week,
+        UsageRange::Month,
+        UsageRange::Quarter,
+    ];
 
     pub fn parse(value: &str) -> Option<Self> {
         Self::ALL.into_iter().find(|r| r.as_str() == value)

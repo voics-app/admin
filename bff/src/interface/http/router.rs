@@ -19,20 +19,35 @@ pub fn router(state: AppState) -> Router {
         .route("/usage", get(handlers::usage))
         .route("/voice/regions", get(handlers::voice_regions))
         .route("/voice/nodes/{node_id}/drain", post(handlers::drain_node))
-        .route("/voice/nodes/{node_id}/undrain", post(handlers::undrain_node))
+        .route(
+            "/voice/nodes/{node_id}/undrain",
+            post(handlers::undrain_node),
+        )
         .route("/platform/health", get(handlers::platform_health))
-        .route("/platform/health/series", get(handlers::platform_health_series))
+        .route(
+            "/platform/health/series",
+            get(handlers::platform_health_series),
+        )
         .route("/users", get(handlers::search_users))
         .route("/users/{user_id}/suspend", post(handlers::suspend_user))
         .route("/guilds", get(handlers::search_guilds))
         .route("/flags", get(handlers::list_flags))
-        .route("/flags/{key}", put(handlers::put_flag).delete(handlers::delete_flag))
+        .route(
+            "/flags/{key}",
+            put(handlers::put_flag).delete(handlers::delete_flag),
+        )
         .route("/audit", get(handlers::audit_log))
         .fallback(handlers::unknown_api_route)
-        .layer(middleware::from_fn_with_state(state.clone(), auth::require_admin));
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth::require_admin,
+        ));
 
     let header = |name: &'static str, value: &'static str| {
-        SetResponseHeaderLayer::if_not_present(HeaderName::from_static(name), HeaderValue::from_static(value))
+        SetResponseHeaderLayer::if_not_present(
+            HeaderName::from_static(name),
+            HeaderValue::from_static(value),
+        )
     };
 
     Router::new()

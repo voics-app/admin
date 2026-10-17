@@ -63,12 +63,22 @@ pub struct FeatureFlag {
 }
 
 impl FeatureFlag {
-    pub fn new(key: FlagKey, description: &str, enabled: bool, rollout_percent: RolloutPercent) -> Result<Self, FlagError> {
+    pub fn new(
+        key: FlagKey,
+        description: &str,
+        enabled: bool,
+        rollout_percent: RolloutPercent,
+    ) -> Result<Self, FlagError> {
         let description = description.trim();
         if description.chars().count() > MAX_DESCRIPTION_LEN {
             return Err(FlagError::DescriptionTooLong);
         }
-        Ok(Self { key, description: description.to_owned(), enabled, rollout_percent })
+        Ok(Self {
+            key,
+            description: description.to_owned(),
+            enabled,
+            rollout_percent,
+        })
     }
 }
 
@@ -78,13 +88,24 @@ mod tests {
 
     #[test]
     fn accepts_dotted_snake_case_keys() {
-        assert_eq!(FlagKey::parse("voice.av1_simulcast").unwrap().as_str(), "voice.av1_simulcast");
+        assert_eq!(
+            FlagKey::parse("voice.av1_simulcast").unwrap().as_str(),
+            "voice.av1_simulcast"
+        );
         assert!(FlagKey::parse("p2p-dms").is_ok());
     }
 
     #[test]
     fn rejects_malformed_keys() {
-        for bad in ["", "a", "1abc", "Voice", "has space", "emoji🙂", &"x".repeat(65)] {
+        for bad in [
+            "",
+            "a",
+            "1abc",
+            "Voice",
+            "has space",
+            "emoji🙂",
+            &"x".repeat(65),
+        ] {
             assert_eq!(FlagKey::parse(bad), Err(FlagError::InvalidKey), "{bad}");
         }
     }
@@ -108,6 +129,9 @@ mod tests {
         let rollout = RolloutPercent::parse(50).unwrap();
         let flag = FeatureFlag::new(key.clone(), "  Sync playback  ", true, rollout).unwrap();
         assert_eq!(flag.description, "Sync playback");
-        assert_eq!(FeatureFlag::new(key, &"d".repeat(281), true, rollout), Err(FlagError::DescriptionTooLong));
+        assert_eq!(
+            FeatureFlag::new(key, &"d".repeat(281), true, rollout),
+            Err(FlagError::DescriptionTooLong)
+        );
     }
 }

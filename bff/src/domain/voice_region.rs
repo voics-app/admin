@@ -32,9 +32,15 @@ pub struct RegionLoad {
 pub fn summarize_regions(nodes: &[VoiceNode]) -> Vec<RegionLoad> {
     let mut by_region: BTreeMap<&str, Vec<&VoiceNode>> = BTreeMap::new();
     for node in nodes {
-        by_region.entry(node.region.as_str()).or_default().push(node);
+        by_region
+            .entry(node.region.as_str())
+            .or_default()
+            .push(node);
     }
-    by_region.into_iter().map(|(region, members)| summarize(region, &members)).collect()
+    by_region
+        .into_iter()
+        .map(|(region, members)| summarize(region, &members))
+        .collect()
 }
 
 fn summarize(region: &str, members: &[&VoiceNode]) -> RegionLoad {
@@ -97,7 +103,10 @@ mod tests {
 
     #[test]
     fn regions_are_sorted_by_name() {
-        let regions = summarize_regions(&[node("a", "us-east", 1, 1.0, false), node("b", "ap-south", 1, 1.0, false)]);
+        let regions = summarize_regions(&[
+            node("a", "us-east", 1, 1.0, false),
+            node("b", "ap-south", 1, 1.0, false),
+        ]);
         let names: Vec<_> = regions.iter().map(|r| r.region.as_str()).collect();
         assert_eq!(names, vec!["ap-south", "us-east"]);
     }

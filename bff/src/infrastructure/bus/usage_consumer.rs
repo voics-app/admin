@@ -27,22 +27,40 @@ pub struct UsageConsumer {
 }
 
 impl UsageConsumer {
-    pub fn new(brokers: Vec<String>, ingest: Arc<IngestUsageEvents>, writer: Arc<dyn RollupWriter>) -> Self {
-        Self { brokers, ingest, writer }
+    pub fn new(
+        brokers: Vec<String>,
+        ingest: Arc<IngestUsageEvents>,
+        writer: Arc<dyn RollupWriter>,
+    ) -> Self {
+        Self {
+            brokers,
+            ingest,
+            writer,
+        }
     }
 
     pub async fn run(self, mut shutdown: watch::Receiver<bool>) {
-        let Some(client) = self.connect(&mut shutdown).await else { return };
+        let Some(client) = self.connect(&mut shutdown).await else {
+            return;
+        };
         let client = Arc::new(client);
         let mut running: BTreeSet<(String, i32)> = BTreeSet::new();
         let mut tasks = JoinSet::new();
         loop {
             match client.list_topics().await {
                 Ok(topics) => {
-                    for topic in topics.into_iter().filter(|t| TOPICS.contains(&t.name.as_str())) {
+                    for topic in topics
+                        .into_iter()
+                        .filter(|t| TOPICS.contains(&t.name.as_str()))
+                    {
                         for partition in topic.partitions {
                             if running.insert((topic.name.clone(), partition)) {
-                                tasks.spawn(self.consume(client.clone(), topic.name.clone(), partition, shutdown.clone()));
+                                tasks.spawn(self.consume(
+                                    client.clone(),
+                                    topic.name.clone(),
+                                    partition,
+                                    shutdown.clone(),
+                                ));
                             }
                         }
                     }
@@ -59,7 +77,11 @@ impl UsageConsumer {
 
     async fn connect(&self, shutdown: &mut watch::Receiver<bool>) -> Option<Client> {
         loop {
-            match ClientBuilder::new(self.brokers.clone()).client_id("discordy-admin-bff").build().await {
+            match ClientBuilder::new(self.brokers.clone())
+                .client_id("discordy-admin-bff")
+                .build()
+                .await
+            {
                 Ok(client) => {
                     tracing::info!(brokers = ?self.brokers, "connected to event bus");
                     return Some(client);
@@ -73,11 +95,21 @@ impl UsageConsumer {
         }
     }
 
-    fn consume(&self, client: Arc<Client>, topic: String, partition: i32, mut shutdown: watch::Receiver<bool>) -> impl Future<Output = ()> + use<> {
+    fn consume(
+        &self,
+        client: Arc<Client>,
+        topic: String,
+        partition: i32,
+        mut shutdown: watch::Receiver<bool>,
+    ) -> impl Future<Output = ()> + use<> {
         let ingest = self.ingest.clone();
         let writer = self.writer.clone();
         async move {
-            let Some(mut pump) = open_pump(&client, &topic, partition, writer, ingest, &mut shutdown).await else { return };
+            let Some(mut pump) =
+                open_pump(&client, &topic, partition, writer, ingest, &mut shutdown).await
+            else {
+                return;
+            };
             tracing::info!(%topic, partition, offset = pump.next_offset(), "consuming partition");
             loop {
                 if *shutdown.borrow() {
@@ -116,16 +148,29 @@ async fn open_pump(
                 .partition_client(topic, partition, UnknownTopicHandling::Retry)
                 .await
                 .map_err(|e| e.to_string())?;
-            let source: Arc<dyn RecordSource> = Arc::new(KafkaPartitionSource::new(partition_client));
-            let offset = match writer.checkpoint(topic, partition).await.map_err(|e| e.to_string())? {
+            let source: Arc<dyn RecordSource> =
+                Arc::new(KafkaPartitionSource::new(partition_client));
+            let offset = match writer
+                .checkpoint(topic, partition)
+                .await
+                .map_err(|e| e.to_string())?
+            {
                 Some(offset) => offset,
                 None => source.earliest_offset().await.map_err(|e| e.to_string())?,
             };
-            Ok::<_, String>(PartitionPump::new(topic, partition, offset, source, ingest.clone()))
+            Ok::<_, String>(PartitionPump::new(
+                topic,
+                partition,
+                offset,
+                source,
+                ingest.clone(),
+            ))
         };
         match attempt.await {
             Ok(pump) => return Some(pump),
-            Err(error) => tracing::warn!(%topic, partition, %error, "opening partition failed, retrying"),
+            Err(error) => {
+                tracing::warn!(%topic, partition, %error, "opening partition failed, retrying")
+            }
         }
         tokio::select! {
             _ = shutdown.changed() => return None,

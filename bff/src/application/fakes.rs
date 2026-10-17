@@ -12,8 +12,12 @@ use super::ports::audit_log::AuditLog;
 use super::ports::clock::Clock;
 use super::ports::feature_flags::{FeatureFlagRepository, StoredFlag};
 use super::ports::gateway_admin::{GatewayAdmin, GatewayStats};
-use super::ports::platform_metrics::{HealthPanel, LabelledSeries, LabelledValue, PlatformMetrics, TargetAvailability};
-use super::ports::rollups::{ActiveUsersPoint, DimensionPoint, RollupReader, RollupWriter, StreamCheckpoint};
+use super::ports::platform_metrics::{
+    HealthPanel, LabelledSeries, LabelledValue, PlatformMetrics, TargetAvailability,
+};
+use super::ports::rollups::{
+    ActiveUsersPoint, DimensionPoint, RollupReader, RollupWriter, StreamCheckpoint,
+};
 use super::ports::voice_directory::VoiceDirectory;
 use super::ports::{PortError, PortResult};
 use crate::domain::audit::{AuditEntry, NewAuditEntry};
@@ -68,21 +72,40 @@ impl FakeRollups {
     }
 
     fn read_guard(&self) -> PortResult<()> {
-        if *self.fail_reads.lock().unwrap() { Err(unavailable()) } else { Ok(()) }
+        if *self.fail_reads.lock().unwrap() {
+            Err(unavailable())
+        } else {
+            Ok(())
+        }
     }
 }
 
-fn in_window(points: &[DimensionPoint], from: DateTime<Utc>, to: DateTime<Utc>) -> Vec<DimensionPoint> {
-    points.iter().filter(|p| p.bucket >= from && p.bucket < to).cloned().collect()
+fn in_window(
+    points: &[DimensionPoint],
+    from: DateTime<Utc>,
+    to: DateTime<Utc>,
+) -> Vec<DimensionPoint> {
+    points
+        .iter()
+        .filter(|p| p.bucket >= from && p.bucket < to)
+        .cloned()
+        .collect()
 }
 
 #[async_trait]
 impl RollupWriter for FakeRollups {
-    async fn apply(&self, delta: &RollupDelta, checkpoint: Option<&StreamCheckpoint>) -> PortResult<()> {
+    async fn apply(
+        &self,
+        delta: &RollupDelta,
+        checkpoint: Option<&StreamCheckpoint>,
+    ) -> PortResult<()> {
         if *self.fail_writes.lock().unwrap() {
             return Err(unavailable());
         }
-        self.applied.lock().unwrap().push((delta.clone(), checkpoint.cloned()));
+        self.applied
+            .lock()
+            .unwrap()
+            .push((delta.clone(), checkpoint.cloned()));
         Ok(())
     }
 
@@ -93,28 +116,73 @@ impl RollupWriter for FakeRollups {
             .filter_map(|(_, c)| c.as_ref())
             .filter(|c| c.topic == topic && c.partition == partition)
             .map(|c| c.next_offset)
-            .last())
+            .next_back())
     }
 }
 
 #[async_trait]
 impl RollupReader for FakeRollups {
-    async fn counters(&self, metric: CounterMetric, _: Granularity, from: DateTime<Utc>, to: DateTime<Utc>) -> PortResult<Vec<DimensionPoint>> {
+    async fn counters(
+        &self,
+        metric: CounterMetric,
+        _: Granularity,
+        from: DateTime<Utc>,
+        to: DateTime<Utc>,
+    ) -> PortResult<Vec<DimensionPoint>> {
         self.read_guard()?;
-        Ok(in_window(self.counters.lock().unwrap().get(&metric).map(Vec::as_slice).unwrap_or_default(), from, to))
+        Ok(in_window(
+            self.counters
+                .lock()
+                .unwrap()
+                .get(&metric)
+                .map(Vec::as_slice)
+                .unwrap_or_default(),
+            from,
+            to,
+        ))
     }
 
-    async fn gauges(&self, metric: GaugeMetric, _: Granularity, from: DateTime<Utc>, to: DateTime<Utc>) -> PortResult<Vec<DimensionPoint>> {
+    async fn gauges(
+        &self,
+        metric: GaugeMetric,
+        _: Granularity,
+        from: DateTime<Utc>,
+        to: DateTime<Utc>,
+    ) -> PortResult<Vec<DimensionPoint>> {
         self.read_guard()?;
-        Ok(in_window(self.gauges.lock().unwrap().get(&metric).map(Vec::as_slice).unwrap_or_default(), from, to))
+        Ok(in_window(
+            self.gauges
+                .lock()
+                .unwrap()
+                .get(&metric)
+                .map(Vec::as_slice)
+                .unwrap_or_default(),
+            from,
+            to,
+        ))
     }
 
-    async fn active_users(&self, from: NaiveDate, to: NaiveDate) -> PortResult<Vec<ActiveUsersPoint>> {
+    async fn active_users(
+        &self,
+        from: NaiveDate,
+        to: NaiveDate,
+    ) -> PortResult<Vec<ActiveUsersPoint>> {
         self.read_guard()?;
-        Ok(self.active.lock().unwrap().iter().filter(|p| p.day >= from && p.day <= to).copied().collect())
+        Ok(self
+            .active
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|p| p.day >= from && p.day <= to)
+            .copied()
+            .collect())
     }
 
-    async fn quality_by_region(&self, _: DateTime<Utc>, _: DateTime<Utc>) -> PortResult<Vec<(String, QualityTotals)>> {
+    async fn quality_by_region(
+        &self,
+        _: DateTime<Utc>,
+        _: DateTime<Utc>,
+    ) -> PortResult<Vec<(String, QualityTotals)>> {
         self.read_guard()?;
         Ok(self.quality.lock().unwrap().clone())
     }
@@ -125,7 +193,13 @@ impl RollupReader for FakeRollups {
 }
 
 pub fn api_stats() -> ApiStats {
-    ApiStats { users_total: 1200, guilds_total: 80, channels_total: 640, bots_total: 4, signups_24h: 12 }
+    ApiStats {
+        users_total: 1200,
+        guilds_total: 80,
+        channels_total: 640,
+        bots_total: 4,
+        signups_24h: 12,
+    }
 }
 
 pub struct FakeApi {
@@ -141,7 +215,10 @@ impl Default for FakeApi {
     fn default() -> Self {
         Self {
             stats: Mutex::new(Ok(api_stats())),
-            users: Mutex::new(Ok(UserPage { users: vec![], next_after: None })),
+            users: Mutex::new(Ok(UserPage {
+                users: vec![],
+                next_after: None,
+            })),
             guilds: Mutex::new(Ok(vec![])),
             user_queries: Mutex::new(vec![]),
             suspensions: Mutex::new(vec![]),
@@ -168,7 +245,10 @@ impl ApiAdmin for FakeApi {
     async fn suspend_user(&self, user_id: &str, suspension: &Suspension) -> PortResult<()> {
         let result = self.suspend_result.lock().unwrap().clone();
         if result.is_ok() {
-            self.suspensions.lock().unwrap().push((user_id.to_owned(), suspension.clone()));
+            self.suspensions
+                .lock()
+                .unwrap()
+                .push((user_id.to_owned(), suspension.clone()));
         }
         result
     }
@@ -191,7 +271,11 @@ pub struct FakeGateway {
 
 impl Default for FakeGateway {
     fn default() -> Self {
-        Self { stats: Mutex::new(Ok(gateway_stats())), drain_calls: Mutex::new(vec![]), drain_result: Mutex::new(Ok(())) }
+        Self {
+            stats: Mutex::new(Ok(gateway_stats())),
+            drain_calls: Mutex::new(vec![]),
+            drain_result: Mutex::new(Ok(())),
+        }
     }
 }
 
@@ -199,7 +283,10 @@ impl FakeGateway {
     fn record_drain(&self, node_id: &str, draining: bool) -> PortResult<()> {
         let result = self.drain_result.lock().unwrap().clone();
         if result.is_ok() {
-            self.drain_calls.lock().unwrap().push((node_id.to_owned(), draining));
+            self.drain_calls
+                .lock()
+                .unwrap()
+                .push((node_id.to_owned(), draining));
         }
         result
     }
@@ -242,7 +329,10 @@ pub struct FakeVoice {
 
 impl Default for FakeVoice {
     fn default() -> Self {
-        Self { nodes: Mutex::new(Ok(vec![voice_node("nl-1", "nl-home", 12)])), healthy: true }
+        Self {
+            nodes: Mutex::new(Ok(vec![voice_node("nl-1", "nl-home", 12)])),
+            healthy: true,
+        }
     }
 }
 
@@ -257,10 +347,12 @@ impl VoiceDirectory for FakeVoice {
     }
 }
 
+pub type SeriesCall = (HealthPanel, DateTime<Utc>, DateTime<Utc>, u32);
+
 pub struct FakeMetrics {
     pub availability: Mutex<PortResult<Vec<TargetAvailability>>>,
     pub snapshots: Mutex<HashMap<HealthPanel, Vec<LabelledValue>>>,
-    pub series_calls: Mutex<Vec<(HealthPanel, DateTime<Utc>, DateTime<Utc>, u32)>>,
+    pub series_calls: Mutex<Vec<SeriesCall>>,
     pub reachable: bool,
 }
 
@@ -285,12 +377,30 @@ impl PlatformMetrics for FakeMetrics {
         if !self.reachable {
             return Err(unavailable());
         }
-        Ok(self.snapshots.lock().unwrap().get(&panel).cloned().unwrap_or_default())
+        Ok(self
+            .snapshots
+            .lock()
+            .unwrap()
+            .get(&panel)
+            .cloned()
+            .unwrap_or_default())
     }
 
-    async fn series(&self, panel: HealthPanel, from: DateTime<Utc>, to: DateTime<Utc>, step: u32) -> PortResult<Vec<LabelledSeries>> {
-        self.series_calls.lock().unwrap().push((panel, from, to, step));
-        Ok(vec![LabelledSeries { label: "api".into(), points: vec![(from, 1.0)] }])
+    async fn series(
+        &self,
+        panel: HealthPanel,
+        from: DateTime<Utc>,
+        to: DateTime<Utc>,
+        step: u32,
+    ) -> PortResult<Vec<LabelledSeries>> {
+        self.series_calls
+            .lock()
+            .unwrap()
+            .push((panel, from, to, step));
+        Ok(vec![LabelledSeries {
+            label: "api".into(),
+            points: vec![(from, 1.0)],
+        }])
     }
 
     async fn is_reachable(&self) -> bool {
@@ -310,13 +420,25 @@ impl FeatureFlagRepository for FakeFlags {
     }
 
     async fn upsert(&self, flag: &FeatureFlag, updated_by: &str) -> PortResult<StoredFlag> {
-        let stored = StoredFlag { flag: flag.clone(), updated_at: fixed_now(), updated_by: updated_by.to_owned() };
-        self.flags.lock().unwrap().insert(flag.key.as_str().to_owned(), stored.clone());
+        let stored = StoredFlag {
+            flag: flag.clone(),
+            updated_at: fixed_now(),
+            updated_by: updated_by.to_owned(),
+        };
+        self.flags
+            .lock()
+            .unwrap()
+            .insert(flag.key.as_str().to_owned(), stored.clone());
         Ok(stored)
     }
 
     async fn delete(&self, key: &FlagKey) -> PortResult<()> {
-        self.flags.lock().unwrap().remove(key.as_str()).map(|_| ()).ok_or(PortError::NotFound)
+        self.flags
+            .lock()
+            .unwrap()
+            .remove(key.as_str())
+            .map(|_| ())
+            .ok_or(PortError::NotFound)
     }
 }
 
@@ -360,7 +482,9 @@ pub struct FakeVerifier;
 impl AccessTokenVerifier for FakeVerifier {
     async fn verify(&self, token: &str) -> Result<String, AccessTokenError> {
         if token == "keys-down" {
-            return Err(AccessTokenError::KeysUnavailable("jwks fetch failed".into()));
+            return Err(AccessTokenError::KeysUnavailable(
+                "jwks fetch failed".into(),
+            ));
         }
         token
             .strip_prefix("valid:")

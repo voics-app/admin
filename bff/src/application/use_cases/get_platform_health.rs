@@ -2,7 +2,9 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use crate::application::ports::gateway_admin::{GatewayAdmin, GatewayStats};
-use crate::application::ports::platform_metrics::{HealthPanel, LabelledValue, PlatformMetrics, TargetAvailability};
+use crate::application::ports::platform_metrics::{
+    HealthPanel, LabelledValue, PlatformMetrics, TargetAvailability,
+};
 use crate::domain::service_health::{PLATFORM_SERVICES, ServiceStatus};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -55,7 +57,10 @@ impl GetPlatformHealth {
         let services = service_names(&targets)
             .into_iter()
             .map(|service| {
-                let (up, total) = targets.iter().find(|t| t.service == service).map_or((0, 0), |t| (t.up, t.total));
+                let (up, total) = targets
+                    .iter()
+                    .find(|t| t.service == service)
+                    .map_or((0, 0), |t| (t.up, t.total));
                 let error_ratio = errors.get(&service).copied();
                 ServiceHealthView {
                     status: ServiceStatus::classify(up, total, error_ratio),
@@ -82,7 +87,11 @@ impl GetPlatformHealth {
 /// Known platform services first (in a stable order), then anything else being scraped.
 fn service_names(targets: &[TargetAvailability]) -> Vec<String> {
     let mut names: Vec<String> = PLATFORM_SERVICES.iter().map(|s| (*s).to_owned()).collect();
-    let mut extra: Vec<String> = targets.iter().map(|t| t.service.clone()).filter(|s| !names.contains(s)).collect();
+    let mut extra: Vec<String> = targets
+        .iter()
+        .map(|t| t.service.clone())
+        .filter(|s| !names.contains(s))
+        .collect();
     extra.sort();
     extra.dedup();
     names.extend(extra);
@@ -99,23 +108,55 @@ mod tests {
     use crate::application::fakes::{FakeGateway, FakeMetrics, unavailable};
 
     fn target(service: &str, up: u32, total: u32) -> TargetAvailability {
-        TargetAvailability { service: service.into(), up, total }
+        TargetAvailability {
+            service: service.into(),
+            up,
+            total,
+        }
     }
 
     fn value(label: &str, value: f64) -> LabelledValue {
-        LabelledValue { label: label.into(), value }
+        LabelledValue {
+            label: label.into(),
+            value,
+        }
     }
 
     #[tokio::test]
     async fn classifies_each_service_from_targets_and_error_ratio() {
         let metrics = FakeMetrics::default();
-        *metrics.availability.lock().unwrap() = Ok(vec![target("api", 2, 2), target("gateway", 1, 2), target("redpanda", 1, 1)]);
-        metrics.snapshots.lock().unwrap().insert(HealthPanel::ErrorRatio, vec![value("api", 0.2)]);
-        metrics.snapshots.lock().unwrap().insert(HealthPanel::LatencyP95, vec![value("api", 42.0)]);
-        metrics.snapshots.lock().unwrap().insert(HealthPanel::ConsumerLag, vec![value("admin-bff", 12.0)]);
-        let health = GetPlatformHealth::new(Arc::new(metrics), Arc::new(FakeGateway::default())).execute().await;
+        *metrics.availability.lock().unwrap() = Ok(vec![
+            target("api", 2, 2),
+            target("gateway", 1, 2),
+            target("redpanda", 1, 1),
+        ]);
+        metrics
+            .snapshots
+            .lock()
+            .unwrap()
+            .insert(HealthPanel::ErrorRatio, vec![value("api", 0.2)]);
+        metrics
+            .snapshots
+            .lock()
+            .unwrap()
+            .insert(HealthPanel::LatencyP95, vec![value("api", 42.0)]);
+        metrics
+            .snapshots
+            .lock()
+            .unwrap()
+            .insert(HealthPanel::ConsumerLag, vec![value("admin-bff", 12.0)]);
+        let health = GetPlatformHealth::new(Arc::new(metrics), Arc::new(FakeGateway::default()))
+            .execute()
+            .await;
 
-        let status = |name: &str| health.services.iter().find(|s| s.service == name).unwrap().status;
+        let status = |name: &str| {
+            health
+                .services
+                .iter()
+                .find(|s| s.service == name)
+                .unwrap()
+                .status
+        };
         assert_eq!(status("api"), ServiceStatus::Degraded);
         assert_eq!(status("gateway"), ServiceStatus::Degraded);
         assert_eq!(status("messages"), ServiceStatus::Unknown);
@@ -129,11 +170,21 @@ mod tests {
 
     #[tokio::test]
     async fn unreachable_metrics_mark_every_service_unknown() {
-        let metrics = FakeMetrics { reachable: false, ..FakeMetrics::default() };
+        let metrics = FakeMetrics {
+            reachable: false,
+            ..FakeMetrics::default()
+        };
         *metrics.availability.lock().unwrap() = Err(unavailable());
-        let health = GetPlatformHealth::new(Arc::new(metrics), Arc::new(FakeGateway::default())).execute().await;
+        let health = GetPlatformHealth::new(Arc::new(metrics), Arc::new(FakeGateway::default()))
+            .execute()
+            .await;
         assert!(!health.metrics_reachable);
-        assert!(health.services.iter().all(|s| s.status == ServiceStatus::Unknown));
+        assert!(
+            health
+                .services
+                .iter()
+                .all(|s| s.status == ServiceStatus::Unknown)
+        );
         assert_eq!(health.services.len(), PLATFORM_SERVICES.len());
     }
 }

@@ -14,19 +14,34 @@ pub const DEV_EMAIL_HEADER: &str = "x-dev-admin-email";
 pub const CSRF_HEADER: &str = "x-discordy-admin";
 
 fn header(headers: &HeaderMap, name: &str) -> Option<String> {
-    headers.get(name).and_then(|v| v.to_str().ok()).map(str::to_owned)
+    headers
+        .get(name)
+        .and_then(|v| v.to_str().ok())
+        .map(str::to_owned)
 }
 
 /// Authenticates every `/admin-api` request and attaches the [`AdminIdentity`](crate::application::use_cases::authenticate_admin::AdminIdentity).
-pub async fn require_admin(State(state): State<AppState>, mut request: Request, next: Next) -> Response {
+pub async fn require_admin(
+    State(state): State<AppState>,
+    mut request: Request,
+    next: Next,
+) -> Response {
     let headers = request.headers();
     let credentials = AdminCredentials {
         access_assertion: header(headers, ACCESS_ASSERTION_HEADER),
         dev_email: header(headers, DEV_EMAIL_HEADER),
     };
-    let is_mutation = !matches!(*request.method(), Method::GET | Method::HEAD | Method::OPTIONS);
+    let is_mutation = !matches!(
+        *request.method(),
+        Method::GET | Method::HEAD | Method::OPTIONS
+    );
     if is_mutation && header(headers, CSRF_HEADER).as_deref() != Some("1") {
-        return ApiError::new(StatusCode::FORBIDDEN, codes::MISSING_ACCESS, "missing x-discordy-admin header").into_response();
+        return ApiError::new(
+            StatusCode::FORBIDDEN,
+            codes::MISSING_ACCESS,
+            "missing x-discordy-admin header",
+        )
+        .into_response();
     }
     match state.auth.execute(&credentials).await {
         Ok(identity) => {

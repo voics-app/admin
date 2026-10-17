@@ -44,7 +44,13 @@ impl CloudflareAccessVerifier {
     }
 
     pub fn with_certs_url(http: Client, issuer: &str, certs_url: &str, audience: &str) -> Self {
-        Self { http, certs_url: certs_url.to_owned(), issuer: issuer.to_owned(), audience: audience.to_owned(), cache: RwLock::new(None) }
+        Self {
+            http,
+            certs_url: certs_url.to_owned(),
+            issuer: issuer.to_owned(),
+            audience: audience.to_owned(),
+            cache: RwLock::new(None),
+        }
     }
 
     async fn decoding_key(&self, kid: &str) -> Result<DecodingKey, AccessTokenError> {
@@ -53,14 +59,20 @@ impl CloudflareAccessVerifier {
             if let Some(cached) = cache.as_ref().filter(|c| c.fetched_at.elapsed() < KEYS_TTL)
                 && let Some(jwk) = cached.keys.find(kid)
             {
-                return DecodingKey::from_jwk(jwk).map_err(|e| AccessTokenError::Invalid(e.to_string()));
+                return DecodingKey::from_jwk(jwk)
+                    .map_err(|e| AccessTokenError::Invalid(e.to_string()));
             }
         }
         let mut cache = self.cache.write().await;
-        let recently_fetched = cache.as_ref().is_some_and(|c| c.fetched_at.elapsed() < MIN_REFRESH_GAP);
+        let recently_fetched = cache
+            .as_ref()
+            .is_some_and(|c| c.fetched_at.elapsed() < MIN_REFRESH_GAP);
         if !recently_fetched {
             let keys = self.fetch_keys().await?;
-            *cache = Some(CachedKeys { keys, fetched_at: Instant::now() });
+            *cache = Some(CachedKeys {
+                keys,
+                fetched_at: Instant::now(),
+            });
         }
         let jwk = cache
             .as_ref()
@@ -70,16 +82,30 @@ impl CloudflareAccessVerifier {
     }
 
     async fn fetch_keys(&self) -> Result<JwkSet, AccessTokenError> {
-        let unavailable = |e: reqwest::Error| AccessTokenError::KeysUnavailable(e.without_url().to_string());
-        let response = self.http.get(&self.certs_url).send().await.map_err(unavailable)?;
+        let unavailable =
+            |e: reqwest::Error| AccessTokenError::KeysUnavailable(e.without_url().to_string());
+        let response = self
+            .http
+            .get(&self.certs_url)
+            .send()
+            .await
+            .map_err(unavailable)?;
         let response = response.error_for_status().map_err(unavailable)?;
         response.json::<JwkSet>().await.map_err(unavailable)
     }
 }
 
 fn team_issuer(team_domain: &str) -> String {
-    let host = team_domain.trim().trim_start_matches("https://").trim_start_matches("http://").trim_end_matches('/');
-    if host.contains('.') { format!("https://{host}") } else { format!("https://{host}.cloudflareaccess.com") }
+    let host = team_domain
+        .trim()
+        .trim_start_matches("https://")
+        .trim_start_matches("http://")
+        .trim_end_matches('/');
+    if host.contains('.') {
+        format!("https://{host}")
+    } else {
+        format!("https://{host}.cloudflareaccess.com")
+    }
 }
 
 #[async_trait]
@@ -87,16 +113,22 @@ impl AccessTokenVerifier for CloudflareAccessVerifier {
     async fn verify(&self, token: &str) -> Result<String, AccessTokenError> {
         let header = decode_header(token).map_err(|e| AccessTokenError::Invalid(e.to_string()))?;
         if header.alg != Algorithm::RS256 {
-            return Err(AccessTokenError::Invalid(format!("unexpected algorithm {:?}", header.alg)));
+            return Err(AccessTokenError::Invalid(format!(
+                "unexpected algorithm {:?}",
+                header.alg
+            )));
         }
-        let kid = header.kid.ok_or_else(|| AccessTokenError::Invalid("missing kid".into()))?;
+        let kid = header
+            .kid
+            .ok_or_else(|| AccessTokenError::Invalid("missing kid".into()))?;
         let key = self.decoding_key(&kid).await?;
 
         let mut validation = Validation::new(Algorithm::RS256);
         validation.set_audience(&[&self.audience]);
         validation.set_issuer(&[&self.issuer]);
         validation.set_required_spec_claims(&["exp", "iss", "aud"]);
-        let data = decode::<AccessClaims>(token, &key, &validation).map_err(|e| AccessTokenError::Invalid(e.to_string()))?;
+        let data = decode::<AccessClaims>(token, &key, &validation)
+            .map_err(|e| AccessTokenError::Invalid(e.to_string()))?;
         data.claims
             .email
             .filter(|e| !e.trim().is_empty())
@@ -111,6 +143,9 @@ mod tests {
     #[test]
     fn team_names_expand_to_the_cloudflareaccess_host() {
         assert_eq!(team_issuer("acme"), "https://acme.cloudflareaccess.com");
-        assert_eq!(team_issuer("https://acme.cloudflareaccess.com/"), "https://acme.cloudflareaccess.com");
+        assert_eq!(
+            team_issuer("https://acme.cloudflareaccess.com/"),
+            "https://acme.cloudflareaccess.com"
+        );
     }
 }

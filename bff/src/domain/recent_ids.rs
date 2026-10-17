@@ -11,7 +11,11 @@ pub struct RecentIds {
 impl RecentIds {
     pub fn new(capacity: usize) -> Self {
         let capacity = capacity.max(1);
-        Self { capacity, order: VecDeque::with_capacity(capacity), seen: HashSet::with_capacity(capacity) }
+        Self {
+            capacity,
+            order: VecDeque::with_capacity(capacity),
+            seen: HashSet::with_capacity(capacity),
+        }
     }
 
     pub fn contains(&self, id: &str) -> bool {

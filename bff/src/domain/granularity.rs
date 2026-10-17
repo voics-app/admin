@@ -59,7 +59,10 @@ mod tests {
 
     #[test]
     fn minute_bucket_drops_seconds() {
-        assert_eq!(Granularity::Minute.bucket_start(at(13, 37, 59)), at(13, 37, 0));
+        assert_eq!(
+            Granularity::Minute.bucket_start(at(13, 37, 59)),
+            at(13, 37, 0)
+        );
     }
 
     #[test]
@@ -95,9 +98,18 @@ mod tests {
 
     #[test]
     fn picks_minutes_for_short_ranges_and_coarser_buckets_for_long_ones() {
-        assert_eq!(Granularity::for_range(Duration::hours(1)), Granularity::Minute);
-        assert_eq!(Granularity::for_range(Duration::hours(3)), Granularity::Minute);
-        assert_eq!(Granularity::for_range(Duration::hours(24)), Granularity::Hour);
+        assert_eq!(
+            Granularity::for_range(Duration::hours(1)),
+            Granularity::Minute
+        );
+        assert_eq!(
+            Granularity::for_range(Duration::hours(3)),
+            Granularity::Minute
+        );
+        assert_eq!(
+            Granularity::for_range(Duration::hours(24)),
+            Granularity::Hour
+        );
         assert_eq!(Granularity::for_range(Duration::days(7)), Granularity::Hour);
         assert_eq!(Granularity::for_range(Duration::days(30)), Granularity::Day);
         assert_eq!(Granularity::for_range(Duration::days(90)), Granularity::Day);

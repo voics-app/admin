@@ -46,7 +46,12 @@ impl From<Overview> for OverviewDto {
             generated_at: o.generated_at,
             platform: o.api,
             gateway: o.gateway,
-            messages_24h: o.messages_24h.map(|m| MessagesDto { standard: m.standard, ephemeral: m.ephemeral, p2p: m.p2p, total: m.total() }),
+            messages_24h: o.messages_24h.map(|m| MessagesDto {
+                standard: m.standard,
+                ephemeral: m.ephemeral,
+                p2p: m.p2p,
+                total: m.total(),
+            }),
             voice_minutes_24h: o.voice_minutes_24h,
             dau: o.dau,
             mau: o.mau,
@@ -103,7 +108,15 @@ impl From<UsageReport> for UsageDto {
                     signups: p.signups,
                 })
                 .collect(),
-            active_users: r.active_users.into_iter().map(|a| ActiveUsersDto { day: a.day, dau: a.dau, mau: a.mau }).collect(),
+            active_users: r
+                .active_users
+                .into_iter()
+                .map(|a| ActiveUsersDto {
+                    day: a.day,
+                    dau: a.dau,
+                    mau: a.mau,
+                })
+                .collect(),
         }
     }
 }

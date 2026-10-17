@@ -1,5 +1,12 @@
 /// Services always listed on the health page, even before they are scraped.
-pub const PLATFORM_SERVICES: [&str; 6] = ["api", "messages", "gateway", "voice-signaling", "sfu", "admin-bff"];
+pub const PLATFORM_SERVICES: [&str; 6] = [
+    "api",
+    "messages",
+    "gateway",
+    "voice-signaling",
+    "sfu",
+    "admin-bff",
+];
 
 /// Error ratio at or above which a service is considered degraded.
 pub const DEGRADED_ERROR_RATIO: f64 = 0.05;
@@ -50,22 +57,34 @@ mod tests {
 
     #[test]
     fn all_instances_down_is_down() {
-        assert_eq!(ServiceStatus::classify(0, 2, Some(0.0)), ServiceStatus::Down);
+        assert_eq!(
+            ServiceStatus::classify(0, 2, Some(0.0)),
+            ServiceStatus::Down
+        );
     }
 
     #[test]
     fn some_instances_down_is_degraded() {
-        assert_eq!(ServiceStatus::classify(1, 2, Some(0.0)), ServiceStatus::Degraded);
+        assert_eq!(
+            ServiceStatus::classify(1, 2, Some(0.0)),
+            ServiceStatus::Degraded
+        );
     }
 
     #[test]
     fn high_error_ratio_is_degraded() {
-        assert_eq!(ServiceStatus::classify(2, 2, Some(DEGRADED_ERROR_RATIO)), ServiceStatus::Degraded);
+        assert_eq!(
+            ServiceStatus::classify(2, 2, Some(DEGRADED_ERROR_RATIO)),
+            ServiceStatus::Degraded
+        );
     }
 
     #[test]
     fn all_up_with_few_errors_is_healthy() {
-        assert_eq!(ServiceStatus::classify(2, 2, Some(0.01)), ServiceStatus::Healthy);
+        assert_eq!(
+            ServiceStatus::classify(2, 2, Some(0.01)),
+            ServiceStatus::Healthy
+        );
         assert_eq!(ServiceStatus::classify(1, 1, None), ServiceStatus::Healthy);
     }
 }

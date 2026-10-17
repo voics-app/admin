@@ -33,7 +33,11 @@ pub struct ApiError {
 
 impl ApiError {
     pub fn new(status: StatusCode, code: u32, message: impl Into<String>) -> Self {
-        Self { status, code, message: message.into() }
+        Self {
+            status,
+            code,
+            message: message.into(),
+        }
     }
 
     pub fn bad_request(message: impl Into<String>) -> Self {
@@ -47,7 +51,14 @@ impl ApiError {
 
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
-        (self.status, Json(ErrorBody { code: self.code, message: self.message })).into_response()
+        (
+            self.status,
+            Json(ErrorBody {
+                code: self.code,
+                message: self.message,
+            }),
+        )
+            .into_response()
     }
 }
 
@@ -56,12 +67,18 @@ impl From<AppError> for ApiError {
         match error {
             AppError::Validation(message) => ApiError::bad_request(message),
             AppError::NotFound => ApiError::not_found(),
-            AppError::Dependency(PortError::Rejected { status, message }) => {
-                ApiError::new(StatusCode::BAD_GATEWAY, codes::UPSTREAM_REJECTED, format!("upstream rejected the request ({status}): {message}"))
-            }
+            AppError::Dependency(PortError::Rejected { status, message }) => ApiError::new(
+                StatusCode::BAD_GATEWAY,
+                codes::UPSTREAM_REJECTED,
+                format!("upstream rejected the request ({status}): {message}"),
+            ),
             AppError::Dependency(other) => {
                 tracing::warn!(error = %other, "dependency failure");
-                ApiError::new(StatusCode::BAD_GATEWAY, codes::UPSTREAM_UNAVAILABLE, "a platform dependency is unavailable")
+                ApiError::new(
+                    StatusCode::BAD_GATEWAY,
+                    codes::UPSTREAM_UNAVAILABLE,
+                    "a platform dependency is unavailable",
+                )
             }
         }
     }
@@ -76,12 +93,22 @@ impl From<PortError> for ApiError {
 impl From<AuthenticationError> for ApiError {
     fn from(error: AuthenticationError) -> Self {
         match error {
-            AuthenticationError::NotAllowed => ApiError::new(StatusCode::FORBIDDEN, codes::MISSING_ACCESS, error.to_string()),
-            AuthenticationError::KeysUnavailable => {
-                ApiError::new(StatusCode::SERVICE_UNAVAILABLE, codes::UPSTREAM_UNAVAILABLE, error.to_string())
-            }
+            AuthenticationError::NotAllowed => ApiError::new(
+                StatusCode::FORBIDDEN,
+                codes::MISSING_ACCESS,
+                error.to_string(),
+            ),
+            AuthenticationError::KeysUnavailable => ApiError::new(
+                StatusCode::SERVICE_UNAVAILABLE,
+                codes::UPSTREAM_UNAVAILABLE,
+                error.to_string(),
+            ),
             AuthenticationError::MissingCredentials | AuthenticationError::InvalidAssertion(_) => {
-                ApiError::new(StatusCode::UNAUTHORIZED, codes::UNAUTHORIZED, error.to_string())
+                ApiError::new(
+                    StatusCode::UNAUTHORIZED,
+                    codes::UNAUTHORIZED,
+                    error.to_string(),
+                )
             }
         }
     }

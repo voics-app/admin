@@ -36,13 +36,22 @@ pub struct EtcdVoiceDirectory {
 
 impl EtcdVoiceDirectory {
     pub fn new(http: Client, endpoints: Vec<String>) -> Self {
-        let endpoints = endpoints.into_iter().map(|e| e.trim_end_matches('/').to_owned()).collect();
+        let endpoints = endpoints
+            .into_iter()
+            .map(|e| e.trim_end_matches('/').to_owned())
+            .collect();
         Self { http, endpoints }
     }
 
     async fn range(&self, endpoint: &str) -> Result<RangeResponse, String> {
         let body = json!({ "key": B64.encode(VOICE_NODES_PREFIX), "range_end": B64.encode(prefix_end(VOICE_NODES_PREFIX)) });
-        let response = self.http.post(format!("{endpoint}/v3/kv/range")).json(&body).send().await.map_err(|e| e.without_url().to_string())?;
+        let response = self
+            .http
+            .post(format!("{endpoint}/v3/kv/range"))
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| e.without_url().to_string())?;
         if !response.status().is_success() {
             return Err(format!("etcd returned {}", response.status()));
         }
@@ -118,6 +127,9 @@ mod tests {
 
     #[test]
     fn prefix_end_increments_the_last_byte() {
-        assert_eq!(prefix_end("/discordy/voice/nodes/"), b"/discordy/voice/nodes0".to_vec());
+        assert_eq!(
+            prefix_end("/discordy/voice/nodes/"),
+            b"/discordy/voice/nodes0".to_vec()
+        );
     }
 }

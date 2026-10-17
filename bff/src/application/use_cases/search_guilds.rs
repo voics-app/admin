@@ -27,8 +27,20 @@ mod tests {
     #[tokio::test]
     async fn returns_the_guilds_api_found() {
         let api = FakeApi::default();
-        let guild = GuildSummary { id: "1".into(), name: "Lounge".into(), owner_id: None, member_count: Some(3), voice_region: None };
+        let guild = GuildSummary {
+            id: "1".into(),
+            name: "Lounge".into(),
+            owner_id: None,
+            member_count: Some(3),
+            voice_region: None,
+        };
         *api.guilds.lock().unwrap() = Ok(vec![guild.clone()]);
-        assert_eq!(SearchGuilds::new(Arc::new(api)).execute(" lou ").await.unwrap(), vec![guild]);
+        assert_eq!(
+            SearchGuilds::new(Arc::new(api))
+                .execute(" lou ")
+                .await
+                .unwrap(),
+            vec![guild]
+        );
     }
 }
