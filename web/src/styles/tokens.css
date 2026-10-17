@@ -1,0 +1,77 @@
+/* Nightglass tokens, shared with the Discordy client (DESIGN.md): ink surfaces at OKLCH hue 275, Iris accent. */
+:root,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: oklch(0.17 0.012 275);
+  --panel: #1a1a19;
+  --panel-raised: oklch(0.255 0.014 275);
+  --fg: #f0efec;
+  --fg-secondary: #c3c2b7;
+  --fg-muted: #898781;
+  --hairline: color-mix(in oklab, var(--fg) 8%, transparent);
+  --accent: oklch(0.68 0.19 275);
+  --accent-fg: #fff;
+  --accent-soft: color-mix(in oklab, var(--accent) 18%, transparent);
+  --focus: var(--accent);
+  --shadow: 0 12px 32px -8px oklch(0.1 0.04 275 / 0.55);
+
+  /* data-viz: validated categorical order (blue, orange, aqua, yellow, magenta, green, violet, red) */
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+  --series-7: #9085e9;
+  --series-8: #e66767;
+  --grid: #2c2c2a;
+  --axis: #383835;
+  --status-good: #0ca30c;
+  --status-warning: #fab219;
+  --status-serious: #ec835a;
+  --status-critical: #d03b3b;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: oklch(0.975 0.004 275);
+  --panel: #fcfcfb;
+  --panel-raised: #fff;
+  --fg: #0b0b0b;
+  --fg-secondary: #52514e;
+  --fg-muted: #6b6a65;
+  --accent: oklch(0.52 0.21 275);
+  --shadow: 0 12px 32px -8px oklch(0.4 0.05 275 / 0.18);
+
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --series-7: #6250d6;
+  --series-8: #e34948;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    color-scheme: light;
+  }
+}
+
+:root {
+  --radius-chip: 6px;
+  --radius-control: 10px;
+  --radius-panel: 14px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --font-ui: "Inter Variable", Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, "Cascadia Code", monospace;
+}
