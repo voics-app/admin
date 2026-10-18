@@ -481,7 +481,7 @@ tr:last-child td {
   font-size: 12px;
 }
 
-.field input,
+.field input:not([type="checkbox"]),
 .field textarea {
   width: 100%;
 }
