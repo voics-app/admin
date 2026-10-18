@@ -37,6 +37,25 @@ describe("api client", () => {
     expect(JSON.parse(init.body as string)).toEqual({ description: "", enabled: true, rollout_percent: 10 });
   });
 
+  it("sends the CSRF header on every state-changing request", async () => {
+    const fetchMock = respond(204);
+    vi.stubGlobal("fetch", fetchMock);
+    await api.drainNode("n1");
+    await api.deleteFlag("a");
+    for (const call of fetchMock.mock.calls) {
+      const init = call[1] as RequestInit;
+      expect(new Headers(init.headers).get("x-discordy-admin")).toBe("1");
+    }
+  });
+
+  it("does not send the CSRF header on reads", async () => {
+    const fetchMock = respond(200, { points: [] });
+    vi.stubGlobal("fetch", fetchMock);
+    await api.usage("7d");
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit | undefined;
+    expect(new Headers(init?.headers).get("x-discordy-admin")).toBeNull();
+  });
+
   it("treats 204 as an empty success", async () => {
     vi.stubGlobal("fetch", respond(204));
     await expect(api.drainNode("n1")).resolves.toBeUndefined();
