@@ -15,7 +15,11 @@ jobs:
       working-directory: web
   docker:
     needs: [rust, web]
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
     uses: discordy-voics/.github/.github/workflows/docker.yml@main
     with:
-      image-name: discordy-admin
+      image-name: admin
       description: Discordy admin portal (Rust BFF with embedded React SPA)
