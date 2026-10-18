@@ -45,7 +45,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 [dev-dependencies]
 http-body-util = "0.1"
 rsa = "0.9"
-testcontainers-modules = { version = "0.12", features = ["postgres"] }
+testcontainers-modules = { version = "0.15", features = ["postgres"] }
 tower = { version = "0.5", features = ["util"] }
 wiremock = "0.6"
 
