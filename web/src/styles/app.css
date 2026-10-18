@@ -357,6 +357,9 @@ tr:last-child td {
 .status.good svg {
   color: var(--status-good);
 }
+.status.neutral svg {
+  color: var(--fg-muted);
+}
 .status.warning svg {
   color: var(--status-warning);
 }

@@ -142,6 +142,22 @@ describe("Platform health", () => {
     expect(screen.getByText("Down")).toBeInTheDocument();
     await waitFor(() => expect(mocked.healthSeries).toHaveBeenCalledTimes(6));
   });
+
+  it("labels services with no scrape targets as no data", async () => {
+    const health: PlatformHealth = {
+      metrics_reachable: true,
+      services: [
+        { service: "messages", status: "unknown", instances_up: 0, instances_total: 0, request_rate: null, error_ratio: null, latency_p95_ms: null },
+      ],
+      consumer_lag: [],
+      db_latency_p95_ms: [],
+      gateway: null,
+    };
+    mocked.platformHealth.mockResolvedValue(health);
+    mocked.healthSeries.mockResolvedValue({ panel: "request_rate", range: "1h", series: [] });
+    render(<PlatformHealthPage />);
+    expect(await screen.findByText("No data")).toBeInTheDocument();
+  });
 });
 
 describe("Trust & Safety", () => {

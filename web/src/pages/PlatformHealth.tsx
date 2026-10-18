@@ -8,10 +8,11 @@ import { TimeSeriesChart } from "../charts/TimeSeriesChart";
 import { ErrorBanner, Loaded, PageHead, RangePicker, StatusBadge } from "../components/common";
 import { formatCount, formatMilliseconds, formatPercent, formatRate } from "../format";
 
-const STATUS: Record<ServiceStatus, { tone: "good" | "warning" | "critical"; label: string }> = {
+const STATUS: Record<ServiceStatus, { tone: "good" | "neutral" | "warning" | "critical"; label: string }> = {
   healthy: { tone: "good", label: "Healthy" },
   degraded: { tone: "warning", label: "Degraded" },
   down: { tone: "critical", label: "Down" },
+  unknown: { tone: "neutral", label: "No data" },
 };
 
 const PANELS: { panel: HealthPanel; title: string; subtitle: string; format: (v: number) => string }[] = [
