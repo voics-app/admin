@@ -162,7 +162,7 @@ main {
 .grid {
   display: grid;
   gap: var(--space-4);
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
 }
 
 .grid.wide {
@@ -357,6 +357,9 @@ tr:last-child td {
 .status.good svg {
   color: var(--status-good);
 }
+.status.neutral svg {
+  color: var(--fg-muted);
+}
 .status.warning svg {
   color: var(--status-warning);
 }
@@ -478,7 +481,7 @@ tr:last-child td {
   font-size: 12px;
 }
 
-.field input,
+.field input:not([type="checkbox"]),
 .field textarea {
   width: 100%;
 }

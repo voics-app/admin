@@ -26,10 +26,18 @@ export class ApiError extends Error {
 
 const BASE = "/admin-api";
 
+/** The BFF requires this header on state-changing requests (see bff/src/interface/http/auth.rs). */
+const CSRF_HEADER = { "x-discordy-admin": "1" };
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const mutates = init?.method !== undefined && init.method !== "GET";
   const response = await fetch(`${BASE}${path}`, {
     ...init,
-    headers: { accept: "application/json", ...(init?.body ? { "content-type": "application/json" } : {}) },
+    headers: {
+      accept: "application/json",
+      ...(mutates ? CSRF_HEADER : {}),
+      ...(init?.body ? { "content-type": "application/json" } : {}),
+    },
   });
   if (!response.ok) {
     throw new ApiError(response.status, await errorMessage(response));

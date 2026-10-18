@@ -67,10 +67,11 @@ export function Loaded<T>({ state, children }: { state: AsyncState<T>; children:
   );
 }
 
-type Tone = "good" | "warning" | "serious" | "critical";
+type Tone = "good" | "neutral" | "warning" | "serious" | "critical";
 
 const ICONS: Record<Tone, ReactNode> = {
   good: <path d="M3 8.5l3 3 7-7" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />,
+  neutral: <circle cx="8" cy="8" r="4.5" fill="none" stroke="currentColor" strokeWidth="1.6" />,
   warning: <path d="M8 2l6.5 11.5h-13zM8 6.5v3M8 11.5v.01" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />,
   serious: <path d="M8 2l6.5 11.5h-13zM8 6.5v3M8 11.5v.01" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />,
   critical: <path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />,

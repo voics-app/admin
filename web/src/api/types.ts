@@ -90,7 +90,7 @@ export interface VoiceRegions {
   regions: Region[];
 }
 
-export type ServiceStatus = "healthy" | "degraded" | "down";
+export type ServiceStatus = "healthy" | "degraded" | "down" | "unknown";
 
 export interface ServiceHealth {
   service: string;
