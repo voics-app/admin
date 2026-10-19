@@ -1,0 +1,28 @@
+name: ci
+on:
+  push:
+    branches: [main, develop, "feature/**", "release/**"]
+  pull_request:
+
+jobs:
+  rust:
+    uses: discordy-voics/.github/.github/workflows/rust.yml@main
+    with:
+      working-directory: bff
+      # RUSTSEC-2023-0071 (rsa Marvin attack) has no fixed release; rsa is a dev-dependency
+      # (test fixtures) only and is never part of the shipped admin BFF binary.
+      audit-args: --ignore RUSTSEC-2023-0071
+  web:
+    uses: discordy-voics/.github/.github/workflows/node.yml@main
+    with:
+      working-directory: web
+  docker:
+    needs: [rust, web]
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    uses: discordy-voics/.github/.github/workflows/docker.yml@main
+    with:
+      image-name: admin
+      description: Discordy admin portal (Rust BFF with embedded React SPA)

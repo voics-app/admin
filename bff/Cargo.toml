@@ -1,0 +1,66 @@
+[package]
+name = "admin-bff"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "UNLICENSED"
+publish = false
+description = "Discordy admin portal backend-for-frontend: usage aggregation, platform health, voice regions, trust & safety."
+
+[lib]
+name = "admin_bff"
+path = "src/lib.rs"
+
+[[bin]]
+name = "admin-bff"
+path = "src/main.rs"
+
+[dependencies]
+async-trait = "0.1"
+axum = "0.8"
+base64 = "0.22"
+chrono = { version = "0.4", default-features = false, features = ["std", "clock", "serde"] }
+futures = "0.3"
+jsonwebtoken = "9.3"
+metrics = "0.24"
+metrics-exporter-prometheus = { version = "0.17", default-features = false }
+mime_guess = "2"
+opentelemetry = "0.30"
+opentelemetry-otlp = { version = "0.30", default-features = false, features = ["trace", "http-proto", "reqwest-blocking-client", "reqwest-rustls"] }
+opentelemetry_sdk = { version = "0.30", features = ["trace"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+rskafka = "0.6"
+rust-embed = { version = "8", features = ["include-exclude"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["raw_value"] }
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "postgres", "chrono", "migrate", "macros"] }
+thiserror = "2"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "sync", "time"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["trace", "compression-gzip", "set-header"] }
+tracing = "0.1"
+tracing-opentelemetry = "0.31"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+[dev-dependencies]
+http-body-util = "0.1"
+rsa = "0.9"
+testcontainers-modules = { version = "0.15", features = ["postgres"] }
+tower = { version = "0.5", features = ["util"] }
+wiremock = "0.6"
+
+[profile.dev.package.num-bigint-dig]
+opt-level = 3
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+dbg_macro = "deny"
+todo = "deny"
+unimplemented = "deny"

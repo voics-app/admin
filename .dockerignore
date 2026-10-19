@@ -1,0 +1,7 @@
+.git
+.github
+**/target
+**/node_modules
+web/dist
+.env
+*.md
