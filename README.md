@@ -58,3 +58,7 @@ Ops endpoints (no auth): `/healthz`, `/readyz`, `/metrics`.
 - Create the `discordy_admin` database and role in CloudNativePG (gitops).
 - Publish the repository to the GitHub org so CI can call the reusable workflows.
 - The api and gateway must expose the admin endpoints this BFF calls (P4: `GET /internal/v1/admin/stats`, user and guild search, suspend; gateway stats).
+
+## Git hooks
+
+Tests run locally, not in CI. Install [lefthook](https://github.com/evilmartians/lefthook) once and run `make hooks` (or `lefthook install`) to enable the pre-push hook in `lefthook.yml`: it runs this repository's lint and unit tests before every push. CI repeats only the slim gate on pull requests. Skip once with `LEFTHOOK=0 git push`.

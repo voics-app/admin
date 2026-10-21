@@ -19,3 +19,8 @@ build:
 
 docker:
 	docker build -t $(IMAGE) .
+
+# Install the pre-push hook (lint + unit tests, see lefthook.yml).
+.PHONY: hooks
+hooks:
+	lefthook install

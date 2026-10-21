@@ -1,9 +1,16 @@
 name: ci
 on:
   push:
-    branches: [main, develop, "feature/**", "release/**"]
+    branches: [main, develop, "release/**"]
     tags: ["v*"]
+  schedule:
+    - cron: "17 4 * * 1" # weekly full run: cargo audit picks up new advisories
   pull_request:
+    paths-ignore: ["**.md", "docs/**"]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   rust:
