@@ -11,7 +11,7 @@ use crate::application::ports::platform_metrics::{
 use crate::application::ports::{PortError, PortResult};
 
 /// Labels used to name a series, in order of preference.
-const LABEL_KEYS: [&str; 4] = ["job", "group", "node", "instance"];
+const LABEL_KEYS: [&str; 5] = ["job", "redpanda_group", "group", "node", "instance"];
 
 const UP_BY_JOB: &str = "sum by (job) (up)";
 const TARGETS_BY_JOB: &str = "count by (job) (up)";
@@ -27,7 +27,9 @@ pub fn promql(panel: HealthPanel) -> &'static str {
         HealthPanel::LatencyP95 => {
             "1000 * histogram_quantile(0.95, sum by (job, le) (rate(http_request_duration_seconds_bucket[5m])))"
         }
-        HealthPanel::ConsumerLag => "sum by (group) (redpanda_kafka_consumer_group_lag_sum)",
+        HealthPanel::ConsumerLag => {
+            "sum by (redpanda_group) (redpanda_kafka_consumer_group_lag_sum)"
+        }
         HealthPanel::DbLatencyP95 => {
             "1000 * histogram_quantile(0.95, sum by (job, le) (rate(db_query_duration_seconds_bucket[5m])))"
         }
