@@ -38,6 +38,17 @@ pub async fn metrics(State(state): State<AppState>) -> Response {
     }
 }
 
+/// `2xx`-style class, the `status` label every service uses (docs/services/catalog.md).
+fn status_class(status: u16) -> &'static str {
+    match status {
+        100..=199 => "1xx",
+        200..=299 => "2xx",
+        300..=399 => "3xx",
+        400..=499 => "4xx",
+        _ => "5xx",
+    }
+}
+
 /// Records `http_requests_total` and `http_request_duration_seconds` per route template.
 pub async fn track_requests(request: Request, next: Next) -> Response {
     let started = Instant::now();
@@ -47,9 +58,9 @@ pub async fn track_requests(request: Request, next: Next) -> Response {
         .get::<MatchedPath>()
         .map_or_else(|| "unmatched".to_owned(), |p| p.as_str().to_owned());
     let response = next.run(request).await;
-    let status = response.status().as_u16().to_string();
+    let status = status_class(response.status().as_u16());
     metrics::counter!("http_requests_total", "method" => method.clone(), "route" => route.clone(), "status" => status).increment(1);
-    metrics::histogram!("http_request_duration_seconds", "method" => method, "route" => route)
+    metrics::histogram!("http_request_duration_seconds", "method" => method, "route" => route, "status" => status)
         .record(started.elapsed().as_secs_f64());
     response
 }

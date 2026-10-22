@@ -17,14 +17,12 @@ const UP_BY_JOB: &str = "sum by (job) (up)";
 const TARGETS_BY_JOB: &str = "count by (job) (up)";
 
 /// The PromQL behind each health panel. Services follow the platform metric conventions
-/// documented in the README (`http_requests_total`, `http_request_duration_seconds`, ...).
+/// documented in docs/services/catalog.md (`http_requests_total`, `http_request_duration_seconds`, `db_query_duration_seconds`).
 pub fn promql(panel: HealthPanel) -> &'static str {
     match panel {
-        HealthPanel::RequestRate => {
-            "sum by (job) (rate(http_requests_total[5m])) or sum by (job) (rate(messages_http_requests_total[5m]))"
-        }
+        HealthPanel::RequestRate => "sum by (job) (rate(http_requests_total[5m]))",
         HealthPanel::ErrorRatio => {
-            r#"(sum by (job) (rate(http_requests_total{status=~"5.."}[5m])) / sum by (job) (rate(http_requests_total[5m]))) or (sum by (job) (rate(messages_http_requests_total{status=~"5.."}[5m])) / sum by (job) (rate(messages_http_requests_total[5m])))"#
+            r#"(sum by (job) (rate(http_requests_total{status="5xx"}[5m])) or 0 * sum by (job) (rate(http_requests_total[5m]))) / sum by (job) (rate(http_requests_total[5m]))"#
         }
         HealthPanel::LatencyP95 => {
             "1000 * histogram_quantile(0.95, sum by (job, le) (rate(http_request_duration_seconds_bucket[5m])))"
