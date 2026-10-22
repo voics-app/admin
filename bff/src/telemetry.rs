@@ -67,7 +67,12 @@ pub fn init(log_level: &str, otel_endpoint: Option<&str>) -> TelemetryGuard {
 }
 
 pub fn install_metrics_recorder() -> Option<PrometheusHandle> {
-    match PrometheusBuilder::new().install_recorder() {
+    match PrometheusBuilder::new()
+        .set_buckets(&[
+            0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 10.0,
+        ])
+        .and_then(PrometheusBuilder::install_recorder)
+    {
         Ok(handle) => Some(handle),
         Err(error) => {
             tracing::warn!(%error, "prometheus recorder unavailable");
