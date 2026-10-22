@@ -33,7 +33,9 @@ pub fn promql(panel: HealthPanel) -> &'static str {
         HealthPanel::DbLatencyP95 => {
             "1000 * histogram_quantile(0.95, sum by (job, le) (rate(db_query_duration_seconds_bucket[5m])))"
         }
-        HealthPanel::GatewaySessions => "sum by (instance) (discordy_gateway_gauges_sessions_local)",
+        HealthPanel::GatewaySessions => {
+            "sum by (instance) (discordy_gateway_gauges_sessions_local)"
+        }
     }
 }
 
