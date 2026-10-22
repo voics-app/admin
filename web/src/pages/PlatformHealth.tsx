@@ -21,7 +21,7 @@ const PANELS: { panel: HealthPanel; title: string; subtitle: string; format: (v:
   { panel: "latency_p95", title: "Latency p95", subtitle: "By service", format: formatMilliseconds },
   { panel: "consumer_lag", title: "Consumer lag", subtitle: "Messages behind, by consumer group", format: formatCount },
   { panel: "db_latency_p95", title: "Database latency p95", subtitle: "By database", format: formatMilliseconds },
-  { panel: "gateway_sessions", title: "Gateway sessions", subtitle: "Online sessions, by node", format: formatCount },
+  { panel: "gateway_sessions", title: "Gateway sessions", subtitle: "Online sessions, by gateway instance", format: formatCount },
 ];
 
 export function PlatformHealthPage() {

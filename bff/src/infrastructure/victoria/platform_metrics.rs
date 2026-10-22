@@ -20,9 +20,11 @@ const TARGETS_BY_JOB: &str = "count by (job) (up)";
 /// documented in the README (`http_requests_total`, `http_request_duration_seconds`, ...).
 pub fn promql(panel: HealthPanel) -> &'static str {
     match panel {
-        HealthPanel::RequestRate => "sum by (job) (rate(http_requests_total[5m]))",
+        HealthPanel::RequestRate => {
+            "sum by (job) (rate(http_requests_total[5m])) or sum by (job) (rate(messages_http_requests_total[5m]))"
+        }
         HealthPanel::ErrorRatio => {
-            r#"sum by (job) (rate(http_requests_total{status=~"5.."}[5m])) / sum by (job) (rate(http_requests_total[5m]))"#
+            r#"(sum by (job) (rate(http_requests_total{status=~"5.."}[5m])) / sum by (job) (rate(http_requests_total[5m]))) or (sum by (job) (rate(messages_http_requests_total{status=~"5.."}[5m])) / sum by (job) (rate(messages_http_requests_total[5m])))"#
         }
         HealthPanel::LatencyP95 => {
             "1000 * histogram_quantile(0.95, sum by (job, le) (rate(http_request_duration_seconds_bucket[5m])))"
@@ -31,7 +33,7 @@ pub fn promql(panel: HealthPanel) -> &'static str {
         HealthPanel::DbLatencyP95 => {
             "1000 * histogram_quantile(0.95, sum by (job, le) (rate(db_query_duration_seconds_bucket[5m])))"
         }
-        HealthPanel::GatewaySessions => "sum by (node) (discordy_gateway_sessions)",
+        HealthPanel::GatewaySessions => "sum by (instance) (discordy_gateway_gauges_sessions_local)",
     }
 }
 
