@@ -5,21 +5,28 @@ FROM node:24-alpine AS web
 WORKDIR /src/web
 RUN corepack enable
 COPY web/package.json web/pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile
 COPY web/ ./
 RUN pnpm build
 
+# --- chef: cargo-chef builds the BFF dependencies once, from a recipe of the manifests only ---
+FROM rust:1-bookworm AS chef
+ARG CHEF_VERSION=0.1.78
+RUN --mount=type=cache,target=/usr/local/cargo/registry     cargo install cargo-chef --locked --version "${CHEF_VERSION}"
+WORKDIR /src/bff
+
+FROM chef AS planner
+COPY bff/ ./
+RUN cargo chef prepare --recipe-path recipe.json
+
 # --- bff: compile the server with the SPA embedded (rust-embed reads ../web/dist) ---
-FROM rust:1-bookworm AS bff
-WORKDIR /src
-COPY bff/Cargo.toml bff/Cargo.lock bff/
-# Warm the dependency cache with a stub crate before the real sources arrive.
-RUN mkdir -p bff/src web/dist && echo "fn main() {}" > bff/src/main.rs && echo "" > bff/src/lib.rs \
-    && touch bff/build.rs \
-    && cd bff && cargo build --release --locked 2>/dev/null || true
-COPY bff/ bff/
-COPY --from=web /src/web/dist web/dist
-RUN cd bff && touch src/main.rs src/lib.rs && cargo build --release --locked --bin admin-bff
+FROM chef AS bff
+COPY --from=planner /src/bff/recipe.json recipe.json
+RUN --mount=type=cache,target=/usr/local/cargo/registry     --mount=type=cache,target=/usr/local/cargo/git     cargo chef cook --release --locked --recipe-path recipe.json
+COPY bff/ ./
+COPY --from=web /src/web/dist /src/web/dist
+RUN --mount=type=cache,target=/usr/local/cargo/registry     --mount=type=cache,target=/usr/local/cargo/git     cargo build --release --locked --bin admin-bff
 
 # --- runtime ---
 FROM gcr.io/distroless/cc-debian12:nonroot
