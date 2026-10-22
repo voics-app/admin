@@ -281,11 +281,11 @@ async fn victoria_target_availability_joins_up_and_total_per_job() {
     Mock::given(path("/api/v1/query"))
         .and(query_param(
             "query",
-            "sum by (group) (redpanda_kafka_consumer_group_lag_sum)",
+            "sum by (redpanda_group) (redpanda_kafka_consumer_group_lag_sum)",
         ))
         .respond_with(ResponseTemplate::new(200).set_body_json(vector(json!([
-            {"metric": {"group": "gateway"}, "value": [1, "42"]},
-            {"metric": {"group": "broken"}, "value": [1, "NaN"]}
+            {"metric": {"redpanda_group": "gateway"}, "value": [1, "42"]},
+            {"metric": {"redpanda_group": "broken"}, "value": [1, "NaN"]}
         ]))))
         .mount(&server)
         .await;
