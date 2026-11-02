@@ -11,7 +11,7 @@ COPY web/ ./
 RUN pnpm build
 
 # --- chef: cargo-chef builds the BFF dependencies once, from a recipe of the manifests only ---
-FROM rust:1-bookworm AS chef
+FROM rust:1.99-slim-bookworm AS chef
 ARG CHEF_VERSION=0.1.78
 RUN --mount=type=cache,target=/usr/local/cargo/registry     cargo install cargo-chef --locked --version "${CHEF_VERSION}"
 WORKDIR /src/bff
