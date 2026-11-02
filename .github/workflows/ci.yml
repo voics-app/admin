@@ -13,7 +13,14 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  gitflow:
+    if: github.event_name == 'pull_request'
+    uses: discordy-voics/.github/.github/workflows/gitflow-guard.yml@main
+
   rust:
+    permissions:
+      contents: read
+      actions: read   # shared workflow: tag builds look up the main run of this commit
     uses: discordy-voics/.github/.github/workflows/rust.yml@main
     with:
       working-directory: bff
@@ -21,6 +28,10 @@ jobs:
       # (test fixtures) only and is never part of the shipped admin BFF binary.
       audit-args: --ignore RUSTSEC-2023-0071
   web:
+    permissions:
+      contents: read
+      actions: read   # shared workflow: tag builds look up the main run of this commit
+      packages: read  # private npm packages (GitHub Packages)
     uses: discordy-voics/.github/.github/workflows/node.yml@main
     with:
       working-directory: web
