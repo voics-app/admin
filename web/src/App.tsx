@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { NavLink, Navigate, Route, Routes } from "react-router-dom";
 import { api } from "./api/client";
+import { BRAND } from "./brand";
 import { useAsync } from "./api/useAsync";
 import { ErrorBanner } from "./components/common";
 import { AuditLogPage } from "./pages/AuditLog";
@@ -75,7 +76,7 @@ export function App() {
           <span className="brand-mark" aria-hidden="true">
             D
           </span>
-          Discordy Admin
+          {BRAND.adminTitle}
         </div>
         <nav className="nav" aria-label="Sections">
           {NAV.map((item) => (
