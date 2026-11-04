@@ -5,7 +5,7 @@ edition = "2024"
 rust-version = "1.88"
 license = "UNLICENSED"
 publish = false
-description = "Discordy admin portal backend-for-frontend: usage aggregation, platform health, voice regions, trust & safety."
+description = "Voics admin portal backend-for-frontend: usage aggregation, platform health, voice regions, trust & safety."
 
 [lib]
 name = "admin_bff"
