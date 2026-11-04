@@ -44,4 +44,4 @@ jobs:
     uses: discordy-voics/.github/.github/workflows/docker.yml@main
     with:
       image-name: admin
-      description: Discordy admin portal (Rust BFF with embedded React SPA)
+      description: Voics admin portal (Rust BFF with embedded React SPA)

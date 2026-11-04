@@ -39,7 +39,7 @@ FROM gcr.io/distroless/cc-debian12:nonroot
 ARG VERSION=0.1.0
 ARG REVISION=unknown
 LABEL org.opencontainers.image.title="discordy-admin" \
-      org.opencontainers.image.description="Discordy admin portal: Rust BFF with the React SPA embedded" \
+      org.opencontainers.image.description="Voics admin portal: Rust BFF with the React SPA embedded" \
       org.opencontainers.image.source="https://github.com/discordy-voics/admin" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${REVISION}" \
