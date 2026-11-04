@@ -1,6 +1,6 @@
-# Discordy admin
+# Voics admin
 
-Operations portal for Discordy: a Rust backend-for-frontend (`bff/`, axum + sqlx) and a React SPA (`web/`, Vite + Recharts). The SPA is embedded in the BFF binary, so the whole portal ships as one image listening on port 8090.
+Operations portal for Voics: a Rust backend-for-frontend (`bff/`, axum + sqlx) and a React SPA (`web/`, Vite + Recharts). The SPA is embedded in the BFF binary, so the whole portal ships as one image listening on port 8090.
 
 Pages: Overview, Usage, Voice regions (drain/resume nodes), Platform health, Trust & Safety (user and guild lookup, suspension), Feature flags, Audit log.
 

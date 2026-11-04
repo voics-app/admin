@@ -1,4 +1,4 @@
-//! Discordy admin BFF.
+//! Voics admin BFF.
 //!
 //! Layers (dependencies point inward only):
 //! - `domain`: pure usage/rollup/flag/voice rules, no IO.
