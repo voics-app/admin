@@ -8,6 +8,8 @@ pub enum AuditAction {
     UndrainVoiceNode,
     UpsertFeatureFlag,
     DeleteFeatureFlag,
+    ResolveReport,
+    DismissReport,
 }
 
 impl AuditAction {
@@ -18,6 +20,8 @@ impl AuditAction {
             AuditAction::UndrainVoiceNode => "voice_node.undrain",
             AuditAction::UpsertFeatureFlag => "feature_flag.upsert",
             AuditAction::DeleteFeatureFlag => "feature_flag.delete",
+            AuditAction::ResolveReport => "report.resolve",
+            AuditAction::DismissReport => "report.dismiss",
         }
     }
 }

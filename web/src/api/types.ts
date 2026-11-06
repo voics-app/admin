@@ -180,3 +180,37 @@ export interface AuditPage {
   entries: AuditEntry[];
   next_before: number | null;
 }
+
+export type ReportStatus = "open" | "resolved" | "dismissed";
+export type ReportResolution = "resolved" | "dismissed";
+
+export interface ReportParty {
+  id: string;
+  username: string | null;
+}
+
+export interface ReportSummary {
+  id: string;
+  kind: "message" | "user";
+  category: string;
+  note: string | null;
+  status: ReportStatus;
+  created_at: string;
+  reporter: ReportParty;
+  reported: ReportParty;
+  channel_id: string | null;
+  guild_id: string | null;
+  message_id: string | null;
+  delivery_mode: string | null;
+  /** Message text: copied by the server ("server") or submitted by the reporter ("reporter"). */
+  content: string | null;
+  content_source: "server" | "reporter" | null;
+  resolved_at: string | null;
+  resolved_by: string | null;
+  resolution_note: string | null;
+}
+
+export interface ReportPage {
+  reports: ReportSummary[];
+  next_after: string | null;
+}

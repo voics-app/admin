@@ -7,7 +7,10 @@ use async_trait::async_trait;
 use chrono::{DateTime, NaiveDate, TimeZone, Utc};
 
 use super::ports::access_verifier::{AccessTokenError, AccessTokenVerifier};
-use super::ports::api_admin::{ApiAdmin, ApiStats, GuildSummary, Suspension, UserPage, UserQuery};
+use super::ports::api_admin::{
+    ApiAdmin, ApiStats, GuildSummary, ReportPage, ReportParty, ReportQuery, ReportStatus,
+    ReportSummary, Suspension, UserPage, UserQuery,
+};
 use super::ports::audit_log::AuditLog;
 use super::ports::clock::Clock;
 use super::ports::feature_flags::{FeatureFlagRepository, StoredFlag};
@@ -209,6 +212,41 @@ pub struct FakeApi {
     pub user_queries: Mutex<Vec<UserQuery>>,
     pub suspensions: Mutex<Vec<(String, Suspension)>>,
     pub suspend_result: Mutex<PortResult<()>>,
+    pub reports: Mutex<PortResult<ReportPage>>,
+    pub report_queries: Mutex<Vec<ReportQuery>>,
+    pub report_closures: Mutex<Vec<ReportClosure>>,
+    pub resolve_result: Mutex<PortResult<ReportSummary>>,
+}
+
+/// A recorded `resolve_report` call: report id, status, resolved by, note.
+pub type ReportClosure = (String, ReportStatus, String, Option<String>);
+
+pub fn report_summary(id: &str) -> ReportSummary {
+    ReportSummary {
+        id: id.to_owned(),
+        kind: "message".into(),
+        category: "spam".into(),
+        note: Some("posts it everywhere".into()),
+        status: "open".into(),
+        created_at: "2026-10-16T12:00:00.000Z".into(),
+        reporter: ReportParty {
+            id: "11".into(),
+            username: Some("ben".into()),
+        },
+        reported: ReportParty {
+            id: "22".into(),
+            username: Some("ann".into()),
+        },
+        channel_id: Some("33".into()),
+        guild_id: Some("44".into()),
+        message_id: Some("55".into()),
+        delivery_mode: Some("standard".into()),
+        content: Some("buy my coins".into()),
+        content_source: Some("server".into()),
+        resolved_at: None,
+        resolved_by: None,
+        resolution_note: None,
+    }
 }
 
 impl Default for FakeApi {
@@ -223,6 +261,13 @@ impl Default for FakeApi {
             user_queries: Mutex::new(vec![]),
             suspensions: Mutex::new(vec![]),
             suspend_result: Mutex::new(Ok(())),
+            reports: Mutex::new(Ok(ReportPage {
+                reports: vec![],
+                next_after: None,
+            })),
+            report_queries: Mutex::new(vec![]),
+            report_closures: Mutex::new(vec![]),
+            resolve_result: Mutex::new(Ok(report_summary("1"))),
         }
     }
 }
@@ -249,6 +294,30 @@ impl ApiAdmin for FakeApi {
                 .lock()
                 .unwrap()
                 .push((user_id.to_owned(), suspension.clone()));
+        }
+        result
+    }
+
+    async fn list_reports(&self, query: &ReportQuery) -> PortResult<ReportPage> {
+        self.report_queries.lock().unwrap().push(query.clone());
+        self.reports.lock().unwrap().clone()
+    }
+
+    async fn resolve_report(
+        &self,
+        report_id: &str,
+        status: ReportStatus,
+        resolved_by: &str,
+        note: Option<&str>,
+    ) -> PortResult<ReportSummary> {
+        let result = self.resolve_result.lock().unwrap().clone();
+        if result.is_ok() {
+            self.report_closures.lock().unwrap().push((
+                report_id.to_owned(),
+                status,
+                resolved_by.to_owned(),
+                note.map(str::to_owned),
+            ));
         }
         result
     }

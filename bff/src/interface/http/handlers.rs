@@ -9,6 +9,7 @@ use serde::Deserialize;
 use super::dto::*;
 use super::error::ApiError;
 use super::state::AppState;
+use crate::application::ports::api_admin::ReportSummary;
 use crate::application::ports::platform_metrics::HealthPanel;
 use crate::application::use_cases::authenticate_admin::AdminIdentity;
 use crate::application::use_cases::upsert_feature_flag::FlagChange;
@@ -145,6 +146,46 @@ pub async fn suspend_user(
         )
         .await?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+#[derive(Deserialize)]
+pub struct ReportsQuery {
+    status: Option<String>,
+    limit: Option<u32>,
+    after: Option<String>,
+}
+
+pub async fn list_reports(
+    State(state): State<AppState>,
+    Query(q): Query<ReportsQuery>,
+) -> ApiResult<ReportPageDto> {
+    let page = state
+        .list_reports
+        .execute(q.status.as_deref(), q.limit, q.after)
+        .await?;
+    Ok(Json(ReportPageDto {
+        reports: page.reports,
+        next_after: page.next_after,
+    }))
+}
+
+pub async fn resolve_report(
+    State(state): State<AppState>,
+    Extension(identity): Extension<AdminIdentity>,
+    Path(report_id): Path<String>,
+    payload: Result<Json<ResolveReportRequest>, JsonRejection>,
+) -> ApiResult<ReportSummary> {
+    let request = body(payload)?;
+    let report = state
+        .resolve_report
+        .execute(
+            &identity.email,
+            &report_id,
+            &request.resolution,
+            request.note.as_deref(),
+        )
+        .await?;
+    Ok(Json(report))
 }
 
 #[derive(Deserialize)]

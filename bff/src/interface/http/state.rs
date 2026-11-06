@@ -18,7 +18,9 @@ use crate::application::use_cases::get_platform_health::GetPlatformHealth;
 use crate::application::use_cases::get_usage_report::GetUsageReport;
 use crate::application::use_cases::list_audit_log::ListAuditLog;
 use crate::application::use_cases::list_feature_flags::ListFeatureFlags;
+use crate::application::use_cases::list_reports::ListReports;
 use crate::application::use_cases::list_voice_regions::ListVoiceRegions;
+use crate::application::use_cases::resolve_report::ResolveReport;
 use crate::application::use_cases::search_guilds::SearchGuilds;
 use crate::application::use_cases::search_users::SearchUsers;
 use crate::application::use_cases::set_voice_node_draining::SetVoiceNodeDraining;
@@ -51,6 +53,8 @@ pub struct AppState {
     pub search_users: Arc<SearchUsers>,
     pub search_guilds: Arc<SearchGuilds>,
     pub suspend_user: Arc<SuspendUser>,
+    pub list_reports: Arc<ListReports>,
+    pub resolve_report: Arc<ResolveReport>,
     pub list_flags: Arc<ListFeatureFlags>,
     pub upsert_flag: Arc<UpsertFeatureFlag>,
     pub delete_flag: Arc<DeleteFeatureFlag>,
@@ -91,6 +95,8 @@ impl AppState {
             health_series: Arc::new(GetHealthSeries::new(metrics, clock.clone())),
             search_users: Arc::new(SearchUsers::new(api.clone())),
             search_guilds: Arc::new(SearchGuilds::new(api.clone())),
+            list_reports: Arc::new(ListReports::new(api.clone())),
+            resolve_report: Arc::new(ResolveReport::new(api.clone(), audit.clone())),
             suspend_user: Arc::new(SuspendUser::new(api, audit.clone(), clock)),
             list_flags: Arc::new(ListFeatureFlags::new(flags.clone())),
             upsert_flag: Arc::new(UpsertFeatureFlag::new(flags.clone(), audit.clone())),

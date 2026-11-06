@@ -9,6 +9,10 @@ import type {
   Overview,
   PlatformHealth,
   Range,
+  ReportPage,
+  ReportResolution,
+  ReportStatus,
+  ReportSummary,
   Usage,
   UserPage,
   VoiceRegions,
@@ -80,6 +84,13 @@ export const api = {
     request<UserPage>(`/users${query({ query: text, after, limit: 25 })}`),
   suspendUser: (userId: string, reason: string, until?: string) =>
     post(`/users/${encodeURIComponent(userId)}/suspend`, { reason, until: until || undefined }),
+  reports: (status: ReportStatus, after?: string) =>
+    request<ReportPage>(`/reports${query({ status, after, limit: 25 })}`),
+  resolveReport: (id: string, resolution: ReportResolution, note?: string) =>
+    request<ReportSummary>(`/reports/${encodeURIComponent(id)}/resolve`, {
+      method: "POST",
+      body: JSON.stringify({ resolution, note: note || undefined }),
+    }),
   searchGuilds: (text: string) =>
     request<{ guilds: GuildSummary[] }>(`/guilds${query({ query: text })}`),
   flags: () => request<{ flags: Flag[] }>("/flags"),

@@ -9,6 +9,8 @@ pub enum AppError {
     Validation(String),
     #[error("not found")]
     NotFound,
+    #[error("{0}")]
+    Conflict(String),
     #[error(transparent)]
     Dependency(PortError),
 }
