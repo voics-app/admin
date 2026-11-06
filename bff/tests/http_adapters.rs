@@ -1,7 +1,9 @@
 //! Contract tests for the outbound HTTP adapters against stub servers (wiremock).
 
 use admin_bff::application::ports::PortError;
-use admin_bff::application::ports::api_admin::{ApiAdmin, Suspension, UserQuery};
+use admin_bff::application::ports::api_admin::{
+    ApiAdmin, ReportQuery, ReportStatus, Suspension, UserQuery,
+};
 use admin_bff::application::ports::gateway_admin::GatewayAdmin;
 use admin_bff::application::ports::platform_metrics::{HealthPanel, PlatformMetrics};
 use admin_bff::application::ports::voice_directory::VoiceDirectory;
@@ -344,4 +346,85 @@ async fn victoria_query_errors_are_unavailable() {
         metrics.snapshot(HealthPanel::RequestRate).await,
         Err(PortError::Unavailable(_))
     ));
+}
+
+fn report_json(status: &str) -> serde_json::Value {
+    json!({
+        "id": "9", "kind": "message", "category": "spam", "note": null, "status": status,
+        "created_at": "2026-11-01T10:00:00.000Z",
+        "reporter": {"id": "1", "username": "ben"},
+        "reported": {"id": "2", "username": null},
+        "channel_id": "3", "guild_id": null, "message_id": "4", "delivery_mode": "ephemeral",
+        "content": "text", "content_source": "reporter",
+        "resolved_at": null, "resolved_by": null, "resolution_note": null
+    })
+}
+
+#[tokio::test]
+async fn reports_are_listed_with_status_and_cursor() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/internal/v1/admin/reports"))
+        .and(query_param("status", "open"))
+        .and(query_param("limit", "25"))
+        .and(query_param("after", "50"))
+        .and(header("X-Internal-Token", "dev-internal-token"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "reports": [report_json("open")], "next_after": "9"
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let page = ApiAdminClient::new(internal(&server))
+        .list_reports(&ReportQuery {
+            status: ReportStatus::Open,
+            limit: 25,
+            after: Some("50".into()),
+        })
+        .await
+        .unwrap();
+    assert_eq!(page.next_after.as_deref(), Some("9"));
+    let report = &page.reports[0];
+    assert_eq!(report.reporter.username.as_deref(), Some("ben"));
+    assert_eq!(report.reported.username, None);
+    assert_eq!(report.content_source.as_deref(), Some("reporter"));
+    assert_eq!(report.guild_id, None);
+}
+
+#[tokio::test]
+async fn resolving_a_report_posts_the_resolution_and_returns_the_report() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/internal/v1/admin/reports/9/resolve"))
+        .and(body_json(json!({
+            "resolution": "dismissed", "resolved_by": "ops@discordy.dev", "note": "not abuse"
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(report_json("dismissed")))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(path("/internal/v1/admin/reports/8/resolve"))
+        .respond_with(ResponseTemplate::new(409).set_body_string("closed"))
+        .mount(&server)
+        .await;
+    let client = ApiAdminClient::new(internal(&server));
+    let report = client
+        .resolve_report(
+            "9",
+            ReportStatus::Dismissed,
+            "ops@discordy.dev",
+            Some("not abuse"),
+        )
+        .await
+        .unwrap();
+    assert_eq!(report.status, "dismissed");
+    assert_eq!(
+        client
+            .resolve_report("8", ReportStatus::Resolved, "ops@discordy.dev", None)
+            .await,
+        Err(PortError::Rejected {
+            status: 409,
+            message: "closed".into()
+        })
+    );
 }

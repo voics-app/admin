@@ -31,6 +31,11 @@ pub fn router(state: AppState) -> Router {
         .route("/users", get(handlers::search_users))
         .route("/users/{user_id}/suspend", post(handlers::suspend_user))
         .route("/guilds", get(handlers::search_guilds))
+        .route("/reports", get(handlers::list_reports))
+        .route(
+            "/reports/{report_id}/resolve",
+            post(handlers::resolve_report),
+        )
         .route("/flags", get(handlers::list_flags))
         .route(
             "/flags/{key}",

@@ -3,10 +3,12 @@ use async_trait::async_trait;
 use super::internal_client::InternalClient;
 use crate::application::ports::PortResult;
 use crate::application::ports::api_admin::{
-    ApiAdmin, ApiStats, GuildSummary, Suspension, UserPage, UserQuery, UserSummary,
+    ApiAdmin, ApiStats, GuildSummary, ReportPage, ReportParty, ReportQuery, ReportStatus,
+    ReportSummary, Suspension, UserPage, UserQuery, UserSummary,
 };
 use crate::infrastructure::contracts::{
-    ApiStatsDto, GuildDto, GuildListDto, SuspendRequestDto, UserDto, UserListDto,
+    ApiStatsDto, GuildDto, GuildListDto, ReportDto, ReportListDto, ReportPartyDto,
+    ResolveReportRequestDto, SuspendRequestDto, UserDto, UserListDto,
 };
 
 /// Adapter for the api service's admin endpoints (P4).
@@ -39,6 +41,35 @@ fn to_guild(dto: GuildDto) -> GuildSummary {
         owner_id: dto.owner_id,
         member_count: dto.member_count,
         voice_region: dto.voice_region,
+    }
+}
+
+fn to_party(dto: ReportPartyDto) -> ReportParty {
+    ReportParty {
+        id: dto.id,
+        username: dto.username,
+    }
+}
+
+fn to_report(dto: ReportDto) -> ReportSummary {
+    ReportSummary {
+        id: dto.id,
+        kind: dto.kind,
+        category: dto.category,
+        note: dto.note,
+        status: dto.status,
+        created_at: dto.created_at,
+        reporter: to_party(dto.reporter),
+        reported: to_party(dto.reported),
+        channel_id: dto.channel_id,
+        guild_id: dto.guild_id,
+        message_id: dto.message_id,
+        delivery_mode: dto.delivery_mode,
+        content: dto.content,
+        content_source: dto.content_source,
+        resolved_at: dto.resolved_at,
+        resolved_by: dto.resolved_by,
+        resolution_note: dto.resolution_note,
     }
 }
 
@@ -108,5 +139,45 @@ impl ApiAdmin for ApiAdminClient {
                 Some(&body),
             )
             .await
+    }
+
+    async fn list_reports(&self, query: &ReportQuery) -> PortResult<ReportPage> {
+        let mut params = vec![
+            ("status", query.status.as_str().to_owned()),
+            ("limit", query.limit.to_string()),
+        ];
+        if let Some(after) = &query.after {
+            params.push(("after", after.clone()));
+        }
+        let dto: ReportListDto = self
+            .client
+            .get_json("/internal/v1/admin/reports", &params)
+            .await?;
+        Ok(ReportPage {
+            reports: dto.reports.into_iter().map(to_report).collect(),
+            next_after: dto.next_after,
+        })
+    }
+
+    async fn resolve_report(
+        &self,
+        report_id: &str,
+        status: ReportStatus,
+        resolved_by: &str,
+        note: Option<&str>,
+    ) -> PortResult<ReportSummary> {
+        let body = ResolveReportRequestDto {
+            resolution: status.as_str(),
+            resolved_by,
+            note,
+        };
+        let dto: ReportDto = self
+            .client
+            .post_json(
+                &format!("/internal/v1/admin/reports/{report_id}/resolve"),
+                &body,
+            )
+            .await?;
+        Ok(to_report(dto))
     }
 }

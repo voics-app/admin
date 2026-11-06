@@ -3,7 +3,7 @@
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::application::ports::api_admin::{ApiStats, GuildSummary, UserSummary};
+use crate::application::ports::api_admin::{ApiStats, GuildSummary, ReportSummary, UserSummary};
 use crate::application::ports::feature_flags::StoredFlag;
 use crate::application::ports::gateway_admin::GatewayStats;
 use crate::application::ports::platform_metrics::{LabelledSeries, LabelledValue};
@@ -269,6 +269,20 @@ pub struct UserPageDto {
 #[derive(Serialize)]
 pub struct GuildListDto {
     pub guilds: Vec<GuildSummary>,
+}
+
+#[derive(Serialize)]
+pub struct ReportPageDto {
+    pub reports: Vec<ReportSummary>,
+    pub next_after: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct ResolveReportRequest {
+    /// `resolved` or `dismissed`.
+    pub resolution: String,
+    #[serde(default)]
+    pub note: Option<String>,
 }
 
 #[derive(Deserialize)]

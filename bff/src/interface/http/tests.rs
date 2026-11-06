@@ -449,3 +449,65 @@ async fn missing_static_files_are_404_not_the_spa() {
         .unwrap();
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
+
+#[tokio::test]
+async fn report_queue_lists_and_closes_reports() {
+    let h = harness();
+    *h.api.reports.lock().unwrap() = Ok(crate::application::ports::api_admin::ReportPage {
+        reports: vec![report_summary("1")],
+        next_after: None,
+    });
+    let (status, body) = get(&h.app, "/admin-api/reports?status=open&limit=10").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["reports"][0]["content"], "buy my coins");
+    assert_eq!(body["reports"][0]["reporter"]["username"], "ben");
+    assert_eq!(h.api.report_queries.lock().unwrap()[0].limit, 10);
+    assert_eq!(
+        get(&h.app, "/admin-api/reports?status=all").await.0,
+        StatusCode::BAD_REQUEST
+    );
+
+    let close = json_body(
+        as_admin(Method::POST, "/admin-api/reports/1/resolve"),
+        json!({"resolution": "dismissed", "note": "not abuse"}),
+    );
+    let (status, closed) = send(&h.app, close).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(closed["id"], "1");
+    {
+        let closures = h.api.report_closures.lock().unwrap();
+        assert_eq!(
+            closures[0].2, ADMIN,
+            "the signed-in operator is the reviewer"
+        );
+        let entries = h.audit.entries.lock().unwrap();
+        assert_eq!(entries[0].actor_email, ADMIN);
+        assert_eq!(entries[0].action.as_str(), "report.dismiss");
+    }
+
+    let bad = json_body(
+        as_admin(Method::POST, "/admin-api/reports/1/resolve"),
+        json!({"resolution": "ignored"}),
+    );
+    assert_eq!(send(&h.app, bad).await.0, StatusCode::BAD_REQUEST);
+
+    *h.api.resolve_result.lock().unwrap() = Err(crate::application::ports::PortError::Rejected {
+        status: 409,
+        message: "closed".into(),
+    });
+    let again = json_body(
+        as_admin(Method::POST, "/admin-api/reports/1/resolve"),
+        json!({"resolution": "resolved"}),
+    );
+    assert_eq!(send(&h.app, again).await.0, StatusCode::CONFLICT);
+}
+
+#[tokio::test]
+async fn report_routes_need_an_admin() {
+    let h = harness();
+    let anonymous = Request::builder()
+        .uri("/admin-api/reports")
+        .body(Body::empty())
+        .unwrap();
+    assert_eq!(send(&h.app, anonymous).await.0, StatusCode::UNAUTHORIZED);
+}

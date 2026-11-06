@@ -13,6 +13,7 @@ pub mod codes {
     pub const MISSING_ACCESS: u32 = 50001;
     pub const INVALID_FORM_BODY: u32 = 50035;
     pub const NOT_FOUND: u32 = 10000;
+    pub const CONFLICT: u32 = 40900;
     pub const UPSTREAM_UNAVAILABLE: u32 = 50200;
     pub const UPSTREAM_REJECTED: u32 = 50201;
 }
@@ -67,6 +68,9 @@ impl From<AppError> for ApiError {
         match error {
             AppError::Validation(message) => ApiError::bad_request(message),
             AppError::NotFound => ApiError::not_found(),
+            AppError::Conflict(message) => {
+                ApiError::new(StatusCode::CONFLICT, codes::CONFLICT, message)
+            }
             AppError::Dependency(PortError::Rejected { status, message }) => ApiError::new(
                 StatusCode::BAD_GATEWAY,
                 codes::UPSTREAM_REJECTED,

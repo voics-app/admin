@@ -65,6 +65,18 @@ impl InternalClient {
         self.send(request).await.map(|_| ())
     }
 
+    pub async fn post_json<B: Serialize + ?Sized, T: DeserializeOwned>(
+        &self,
+        path: &str,
+        body: &B,
+    ) -> PortResult<T> {
+        let response = self.send(self.http.post(self.url(path)).json(body)).await?;
+        response
+            .json()
+            .await
+            .map_err(|e| PortError::Unavailable(format!("invalid response from {path}: {e}")))
+    }
+
     async fn send(&self, request: RequestBuilder) -> PortResult<Response> {
         let response = request
             .header(INTERNAL_TOKEN_HEADER, &self.token)
