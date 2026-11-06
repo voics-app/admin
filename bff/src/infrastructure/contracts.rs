@@ -188,3 +188,58 @@ pub struct VoiceNodeDto {
     #[serde(default)]
     pub version: String,
 }
+
+/// P4 api `GET /internal/v1/admin/reports` page.
+#[derive(Debug, Clone, Deserialize)]
+pub struct ReportListDto {
+    pub reports: Vec<ReportDto>,
+    #[serde(default)]
+    pub next_after: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ReportPartyDto {
+    pub id: String,
+    #[serde(default)]
+    pub username: Option<String>,
+}
+
+/// One report, also the response of `POST /internal/v1/admin/reports/{id}/resolve`.
+#[derive(Debug, Clone, Deserialize)]
+pub struct ReportDto {
+    pub id: String,
+    pub kind: String,
+    pub category: String,
+    #[serde(default)]
+    pub note: Option<String>,
+    pub status: String,
+    pub created_at: String,
+    pub reporter: ReportPartyDto,
+    pub reported: ReportPartyDto,
+    #[serde(default)]
+    pub channel_id: Option<String>,
+    #[serde(default)]
+    pub guild_id: Option<String>,
+    #[serde(default)]
+    pub message_id: Option<String>,
+    #[serde(default)]
+    pub delivery_mode: Option<String>,
+    #[serde(default)]
+    pub content: Option<String>,
+    #[serde(default)]
+    pub content_source: Option<String>,
+    #[serde(default)]
+    pub resolved_at: Option<String>,
+    #[serde(default)]
+    pub resolved_by: Option<String>,
+    #[serde(default)]
+    pub resolution_note: Option<String>,
+}
+
+/// P4 api `POST /internal/v1/admin/reports/{id}/resolve` body.
+#[derive(Debug, Clone, Serialize)]
+pub struct ResolveReportRequestDto<'a> {
+    pub resolution: &'a str,
+    pub resolved_by: &'a str,
+    pub note: Option<&'a str>,
+}

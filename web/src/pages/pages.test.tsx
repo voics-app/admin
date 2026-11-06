@@ -4,11 +4,12 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../App";
 import { api } from "../api/client";
-import type { Overview, PlatformHealth, VoiceRegions } from "../api/types";
+import type { Overview, PlatformHealth, ReportSummary, VoiceRegions } from "../api/types";
 import { AuditLogPage } from "./AuditLog";
 import { FeatureFlagsPage } from "./FeatureFlags";
 import { OverviewPage } from "./Overview";
 import { PlatformHealthPage } from "./PlatformHealth";
+import { ReportsPage } from "./Reports";
 import { TrustSafetyPage } from "./TrustSafety";
 import { UsagePage } from "./Usage";
 import { VoiceRegionsPage } from "./VoiceRegions";
@@ -238,5 +239,87 @@ describe("App", () => {
     );
     expect(await screen.findByRole("heading", { name: "Access denied" })).toBeInTheDocument();
     expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
+  });
+});
+
+describe("Reports", () => {
+  const report = (overrides: Partial<ReportSummary> = {}): ReportSummary => ({
+    id: "9",
+    kind: "message",
+    category: "harassment",
+    note: "keeps doing it",
+    status: "open",
+    created_at: "2026-11-01T10:00:00Z",
+    reporter: { id: "1", username: "ben" },
+    reported: { id: "2", username: "ann" },
+    channel_id: "3",
+    guild_id: "4",
+    message_id: "5",
+    delivery_mode: "standard",
+    content: "you are the worst",
+    content_source: "server",
+    resolved_at: null,
+    resolved_by: null,
+    resolution_note: null,
+    ...overrides,
+  });
+
+  it("shows server-copied evidence and dismisses with a note", async () => {
+    mocked.reports.mockResolvedValue({ reports: [report()], next_after: null });
+    mocked.resolveReport.mockResolvedValue(report({ status: "dismissed" }));
+    render(<ReportsPage />);
+    expect(await screen.findByText("Copied by server")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Review report 9" }));
+    expect(screen.getByText("you are the worst")).toBeInTheDocument();
+    expect(screen.getByText("keeps doing it")).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText(/Note/), "not abuse");
+    await userEvent.click(screen.getByRole("button", { name: "Dismiss report" }));
+    await waitFor(() => expect(mocked.resolveReport).toHaveBeenCalledWith("9", "dismissed", "not abuse"));
+    expect(await screen.findByRole("status")).toHaveTextContent("Report 9 dismissed.");
+  });
+
+  it("marks reporter-submitted evidence as unverified and resolves", async () => {
+    mocked.reports.mockResolvedValue({
+      reports: [report({ content_source: "reporter", delivery_mode: "ephemeral", content: "what I saw" })],
+      next_after: null,
+    });
+    mocked.resolveReport.mockResolvedValue(report({ status: "resolved" }));
+    render(<ReportsPage />);
+    expect(await screen.findByText("From reporter")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Review report 9" }));
+    expect(screen.getByText(/Unverified/)).toHaveTextContent("ephemeral");
+    await userEvent.click(screen.getByRole("button", { name: "Mark resolved" }));
+    await waitFor(() => expect(mocked.resolveReport).toHaveBeenCalledWith("9", "resolved", undefined));
+  });
+
+  it("switches status, pages with the cursor and hides actions on closed reports", async () => {
+    mocked.reports
+      .mockResolvedValueOnce({ reports: [report()], next_after: "9" })
+      .mockResolvedValueOnce({ reports: [report({ id: "8" })], next_after: null })
+      .mockResolvedValueOnce({
+        reports: [report({ status: "resolved", resolved_by: "ops@x.io", resolution_note: "banned" })],
+        next_after: null,
+      });
+    render(<ReportsPage />);
+    await userEvent.click(await screen.findByRole("button", { name: "Load more" }));
+    await waitFor(() => expect(mocked.reports).toHaveBeenLastCalledWith("open", "9"));
+    expect(await screen.findByRole("button", { name: "Review report 8" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Resolved" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Review report 9" }));
+    expect(screen.getByText(/Resolved by ops@x.io/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Mark resolved" })).not.toBeInTheDocument();
+  });
+
+  it("explains a report with no stored content and shows API errors", async () => {
+    mocked.reports.mockResolvedValue({
+      reports: [report({ content: null, content_source: null, delivery_mode: "p2p" })],
+      next_after: null,
+    });
+    mocked.resolveReport.mockRejectedValue(new Error("the report is already closed"));
+    render(<ReportsPage />);
+    await userEvent.click(await screen.findByRole("button", { name: "Review report 9" }));
+    expect(screen.getByText(/the server holds no copy/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Mark resolved" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("already closed");
   });
 });

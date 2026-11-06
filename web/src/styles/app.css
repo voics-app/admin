@@ -527,3 +527,35 @@ tr:last-child td {
     animation: none !important;
   }
 }
+
+.kv {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+}
+
+.kv dt {
+  color: var(--fg-secondary);
+}
+
+.kv dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.field .label {
+  color: var(--fg-secondary);
+  font-size: 12px;
+}
+
+.evidence {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--hairline);
+  background: var(--bg);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 240px;
+  overflow: auto;
+}
