@@ -26,7 +26,10 @@ jobs:
       working-directory: bff
       # RUSTSEC-2023-0071 (rsa Marvin attack) has no fixed release; rsa is a dev-dependency
       # (test fixtures) only and is never part of the shipped admin BFF binary.
-      audit-args: --ignore RUSTSEC-2023-0071
+      # RUSTSEC-2026-0459 (libsqlite3-sys bundled SQLite CVE) is only in bff/Cargo.lock as sqlx's optional sqlite backend:
+      # the feature is off, so it is never compiled (`cargo tree -i libsqlite3-sys` is empty). sqlx 0.8 pins 0.30; drop this
+      # when sqlx is upgraded.
+      audit-args: --ignore RUSTSEC-2023-0071 --ignore RUSTSEC-2026-0459
   web:
     permissions:
       contents: read
