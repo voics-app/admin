@@ -10,6 +10,7 @@ import { FeatureFlagsPage } from "./FeatureFlags";
 import { OverviewPage } from "./Overview";
 import { PlatformHealthPage } from "./PlatformHealth";
 import { ReportsPage } from "./Reports";
+import { SendNotificationPage } from "./SendNotification";
 import { TrustSafetyPage } from "./TrustSafety";
 import { UsagePage } from "./Usage";
 import { VoiceRegionsPage } from "./VoiceRegions";
@@ -321,5 +322,76 @@ describe("Reports", () => {
     expect(screen.getByText(/the server holds no copy/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Mark resolved" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("already closed");
+  });
+});
+
+describe("Send notification", () => {
+  const alice = { id: "42", username: "alice", global_name: null, email: null, bot: false, created_at: null, suspended_until: null };
+
+  it("sends to one user after showing the device count", async () => {
+    mocked.searchUsers.mockResolvedValue({ users: [alice], next_after: null });
+    mocked.previewNotification.mockResolvedValue({ devices: 2, queued: 0, dropped: 0, truncated: false });
+    mocked.sendNotification.mockResolvedValue({ devices: 2, queued: 2, dropped: 0, truncated: false });
+    render(<SendNotificationPage />);
+    const review = screen.getByRole("button", { name: "Review and send" });
+    expect(review).toBeDisabled();
+    await userEvent.type(screen.getByLabelText("Find the recipient"), "ali");
+    await userEvent.click(screen.getByRole("button", { name: "Search recipient" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Choose alice" }));
+    await userEvent.type(screen.getByLabelText("Title"), "Maintenance");
+    await userEvent.type(screen.getByLabelText("Message"), "Back at 22:00");
+    expect(within(screen.getByLabelText("Notification preview")).getByText("Maintenance")).toBeInTheDocument();
+    await userEvent.click(review);
+    const dialog = await screen.findByRole("dialog", { name: "Send to @alice?" });
+    expect(within(dialog).getByRole("status")).toHaveTextContent("2 devices of this user");
+    expect(mocked.sendNotification).not.toHaveBeenCalled();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Send notification" }));
+    await waitFor(() =>
+      expect(mocked.sendNotification).toHaveBeenCalledWith({ target: { user_id: "42" }, title: "Maintenance", body: "Back at 22:00" }),
+    );
+    expect(await screen.findByText(/Sent to 2 of 2 devices/)).toBeInTheDocument();
+  });
+
+  it("states the device count before sending to everyone", async () => {
+    mocked.previewNotification.mockResolvedValue({ devices: 1234, queued: 0, dropped: 0, truncated: false });
+    mocked.sendNotification.mockResolvedValue({ devices: 1234, queued: 1230, dropped: 4, truncated: false });
+    render(<SendNotificationPage />);
+    await userEvent.click(screen.getByRole("button", { name: "Everyone" }));
+    await userEvent.type(screen.getByLabelText("Title"), "Hello");
+    await userEvent.type(screen.getByLabelText("Message"), "World");
+    await userEvent.click(screen.getByRole("button", { name: "Review and send" }));
+    const dialog = await screen.findByRole("dialog", { name: "Send to everyone?" });
+    expect(within(dialog).getByText("1,234 devices")).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Send to 1,234 devices" }));
+    await waitFor(() => expect(mocked.sendNotification).toHaveBeenCalledWith({ target: "all", title: "Hello", body: "World" }));
+    expect(await screen.findByText(/Sent to 1,230 of 1,234 devices; 4 could not be queued/)).toBeInTheDocument();
+  });
+
+  it("cannot send when nobody has a device, and shows a failed send", async () => {
+    mocked.previewNotification.mockResolvedValueOnce({ devices: 0, queued: 0, dropped: 0, truncated: false });
+    render(<SendNotificationPage />);
+    await userEvent.click(screen.getByRole("button", { name: "Everyone" }));
+    await userEvent.type(screen.getByLabelText("Title"), "Hello");
+    await userEvent.type(screen.getByLabelText("Message"), "World");
+    await userEvent.click(screen.getByRole("button", { name: "Review and send" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByRole("button", { name: /Send to/ })).toBeDisabled();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    mocked.previewNotification.mockResolvedValueOnce({ devices: 3, queued: 0, dropped: 0, truncated: false });
+    mocked.sendNotification.mockRejectedValue(new Error("another notification to everyone is still being sent"));
+    await userEvent.click(screen.getByRole("button", { name: "Review and send" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Send to 3 devices" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("still being sent");
+  });
+
+  it("shows a preview failure on the page", async () => {
+    mocked.previewNotification.mockRejectedValue(new Error("NOTIFIER_INTERNAL_URL is not configured"));
+    render(<SendNotificationPage />);
+    await userEvent.click(screen.getByRole("button", { name: "Everyone" }));
+    await userEvent.type(screen.getByLabelText("Title"), "Hello");
+    await userEvent.type(screen.getByLabelText("Message"), "World");
+    await userEvent.click(screen.getByRole("button", { name: "Review and send" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("not configured");
   });
 });

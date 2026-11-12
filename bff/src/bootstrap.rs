@@ -9,6 +9,7 @@ use tokio::sync::watch;
 
 use crate::application::ports::access_verifier::AccessTokenVerifier;
 use crate::application::ports::clock::{Clock, SystemClock};
+use crate::application::ports::notifier_admin::NotifierAdmin;
 use crate::application::use_cases::authenticate_admin::AuthenticateAdmin;
 use crate::application::use_cases::ingest_usage_events::IngestUsageEvents;
 use crate::application::use_cases::record_platform_totals::RecordPlatformTotals;
@@ -18,7 +19,10 @@ use crate::infrastructure::cloudflare::access_verifier::CloudflareAccessVerifier
 use crate::infrastructure::etcd::voice_directory::EtcdVoiceDirectory;
 use crate::infrastructure::http::api_admin_client::ApiAdminClient;
 use crate::infrastructure::http::gateway_admin_client::GatewayAdminClient;
-use crate::infrastructure::http::internal_client::{InternalClient, http_client};
+use crate::infrastructure::http::internal_client::{InternalClient, http_client, slow_http_client};
+use crate::infrastructure::http::notifier_admin_client::{
+    NotifierAdminClient, UnconfiguredNotifier,
+};
 use crate::infrastructure::postgres::audit_log::PgAuditLog;
 use crate::infrastructure::postgres::connect_and_migrate;
 use crate::infrastructure::postgres::feature_flags::PgFeatureFlags;
@@ -29,6 +33,8 @@ use crate::interface::http::state::{AppState, Ports};
 
 /// Fixed by P1.
 pub const LISTEN_ADDR: ([u8; 4], u16) = ([0, 0, 0, 0], 8090);
+/// A broadcast is paced by the notifier's queue, so the call may take a while.
+const NOTIFIER_TIMEOUT: Duration = Duration::from_secs(120);
 const TOTALS_SAMPLE_INTERVAL: Duration = Duration::from_secs(60);
 const PRUNE_INTERVAL: Duration = Duration::from_secs(3600);
 
@@ -49,9 +55,23 @@ pub async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
         &config.gateway_internal_url,
         &config.internal_service_token,
     )));
+    let notifier: Arc<dyn NotifierAdmin> = match &config.notifier_internal_url {
+        Some(url) => Arc::new(NotifierAdminClient::new(InternalClient::new(
+            slow_http_client(NOTIFIER_TIMEOUT),
+            url,
+            &config.internal_service_token,
+        ))),
+        None => {
+            tracing::warn!(
+                "NOTIFIER_INTERNAL_URL is not set: sending notifications is unavailable"
+            );
+            Arc::new(UnconfiguredNotifier)
+        }
+    };
     let ports = Ports {
         api: api.clone(),
         gateway,
+        notifier,
         rollups: rollups.clone(),
         voice: Arc::new(EtcdVoiceDirectory::new(
             http.clone(),

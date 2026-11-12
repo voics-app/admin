@@ -27,6 +27,8 @@ pub struct Config {
     pub database_url: String,
     pub api_internal_url: String,
     pub gateway_internal_url: String,
+    /// The notifier, for manual pushes; the page reports itself unavailable without it.
+    pub notifier_internal_url: Option<String>,
     pub victoriametrics_url: String,
     pub etcd_endpoints: Vec<String>,
     pub allowlist: AdminAllowlist,
@@ -114,6 +116,13 @@ impl Config {
         }
         let api_internal_url = r.url("API_INTERNAL_URL");
         let gateway_internal_url = r.url("GATEWAY_INTERNAL_URL");
+        let notifier_internal_url = r.optional("NOTIFIER_INTERNAL_URL");
+        if let Some(url) = &notifier_internal_url
+            && !(url.starts_with("http://") || url.starts_with("https://"))
+        {
+            r.problems
+                .push("NOTIFIER_INTERNAL_URL must be an http(s) URL".into());
+        }
         let victoriametrics_url = r.url("VICTORIAMETRICS_URL");
         let etcd_endpoints = r.list("ETCD_ENDPOINTS");
 
@@ -149,6 +158,7 @@ impl Config {
             database_url,
             api_internal_url,
             gateway_internal_url,
+            notifier_internal_url,
             victoriametrics_url,
             etcd_endpoints,
             allowlist,
@@ -193,6 +203,19 @@ mod tests {
         assert_eq!(config.log_level, "info");
         assert!(!config.accepts_dev_header());
         assert_eq!(config.cloudflare_access.unwrap().team_domain, "acme");
+    }
+
+    #[test]
+    fn the_notifier_url_is_optional_but_must_be_a_url() {
+        assert_eq!(load(&base()).unwrap().notifier_internal_url, None);
+        let mut env = base();
+        env.insert("NOTIFIER_INTERNAL_URL", "http://notifier:8085");
+        assert_eq!(
+            load(&env).unwrap().notifier_internal_url.as_deref(),
+            Some("http://notifier:8085")
+        );
+        env.insert("NOTIFIER_INTERNAL_URL", "notifier:8085");
+        assert!(load(&env).unwrap_err().0[0].contains("NOTIFIER_INTERNAL_URL"));
     }
 
     #[test]

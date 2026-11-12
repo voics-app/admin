@@ -36,6 +36,11 @@ pub fn router(state: AppState) -> Router {
             "/reports/{report_id}/resolve",
             post(handlers::resolve_report),
         )
+        .route(
+            "/notifications/preview",
+            post(handlers::preview_notification),
+        )
+        .route("/notifications", post(handlers::send_notification))
         .route("/flags", get(handlers::list_flags))
         .route(
             "/flags/{key}",

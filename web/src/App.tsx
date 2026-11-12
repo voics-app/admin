@@ -9,6 +9,7 @@ import { FeatureFlagsPage } from "./pages/FeatureFlags";
 import { OverviewPage } from "./pages/Overview";
 import { PlatformHealthPage } from "./pages/PlatformHealth";
 import { ReportsPage } from "./pages/Reports";
+import { SendNotificationPage } from "./pages/SendNotification";
 import { TrustSafetyPage } from "./pages/TrustSafety";
 import { UsagePage } from "./pages/Usage";
 import { VoiceRegionsPage } from "./pages/VoiceRegions";
@@ -20,6 +21,7 @@ const NAV = [
   { to: "/health", label: "Platform health" },
   { to: "/safety", label: "Trust & Safety" },
   { to: "/reports", label: "Reports" },
+  { to: "/notify", label: "Send notification" },
   { to: "/flags", label: "Feature flags" },
   { to: "/audit", label: "Audit log" },
 ];
@@ -103,6 +105,7 @@ export function App() {
           <Route path="/health" element={<PlatformHealthPage />} />
           <Route path="/safety" element={<TrustSafetyPage />} />
           <Route path="/reports" element={<ReportsPage />} />
+          <Route path="/notify" element={<SendNotificationPage />} />
           <Route path="/flags" element={<FeatureFlagsPage />} />
           <Route path="/audit" element={<AuditLogPage />} />
           <Route path="*" element={<Navigate to="/overview" replace />} />

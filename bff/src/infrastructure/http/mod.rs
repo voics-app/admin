@@ -3,3 +3,4 @@
 pub mod api_admin_client;
 pub mod gateway_admin_client;
 pub mod internal_client;
+pub mod notifier_admin_client;

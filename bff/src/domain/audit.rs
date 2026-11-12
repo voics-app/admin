@@ -10,6 +10,7 @@ pub enum AuditAction {
     DeleteFeatureFlag,
     ResolveReport,
     DismissReport,
+    SendNotification,
 }
 
 impl AuditAction {
@@ -22,6 +23,7 @@ impl AuditAction {
             AuditAction::DeleteFeatureFlag => "feature_flag.delete",
             AuditAction::ResolveReport => "report.resolve",
             AuditAction::DismissReport => "report.dismiss",
+            AuditAction::SendNotification => "notification.send",
         }
     }
 }

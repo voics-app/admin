@@ -10,8 +10,10 @@ use super::dto::*;
 use super::error::ApiError;
 use super::state::AppState;
 use crate::application::ports::api_admin::ReportSummary;
+use crate::application::ports::notifier_admin::PushReport;
 use crate::application::ports::platform_metrics::HealthPanel;
 use crate::application::use_cases::authenticate_admin::AdminIdentity;
+use crate::application::use_cases::send_manual_push::Draft;
 use crate::application::use_cases::upsert_feature_flag::FlagChange;
 use crate::application::use_cases::usage_range::UsageRange;
 
@@ -146,6 +148,43 @@ pub async fn suspend_user(
         )
         .await?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+fn draft(request: &NotificationRequest) -> Draft {
+    Draft {
+        user_id: match &request.target {
+            NotificationTarget::Everyone(_) => None,
+            NotificationTarget::User { user_id } => Some(user_id.clone()),
+        },
+        title: request.title.clone(),
+        body: request.body.clone(),
+    }
+}
+
+pub async fn preview_notification(
+    State(state): State<AppState>,
+    Extension(identity): Extension<AdminIdentity>,
+    payload: Result<Json<NotificationRequest>, JsonRejection>,
+) -> ApiResult<PushReport> {
+    let request = body(payload)?;
+    let report = state
+        .send_push
+        .preview(&identity.email, &draft(&request))
+        .await?;
+    Ok(Json(report))
+}
+
+pub async fn send_notification(
+    State(state): State<AppState>,
+    Extension(identity): Extension<AdminIdentity>,
+    payload: Result<Json<NotificationRequest>, JsonRejection>,
+) -> ApiResult<PushReport> {
+    let request = body(payload)?;
+    let report = state
+        .send_push
+        .send(&identity.email, &draft(&request), request.confirm_everyone)
+        .await?;
+    Ok(Json(report))
 }
 
 #[derive(Deserialize)]

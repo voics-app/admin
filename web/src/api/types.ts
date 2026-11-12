@@ -167,6 +167,21 @@ export interface FlagInput {
   rollout_percent: number;
 }
 
+export interface NotificationDraft {
+  /** `"all"` for everyone, or one user. */
+  target: "all" | { user_id: string };
+  title: string;
+  body: string;
+}
+
+/** What the notifier counted: devices reached, handed to the push queue, dropped. */
+export interface PushReport {
+  devices: number;
+  queued: number;
+  dropped: number;
+  truncated: boolean;
+}
+
 export interface AuditEntry {
   id: number;
   at: string;
