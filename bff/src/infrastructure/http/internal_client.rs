@@ -18,6 +18,15 @@ pub fn http_client() -> Client {
         .unwrap_or_default()
 }
 
+/// The outbound client for calls that take long, such as a broadcast the notifier paces.
+pub fn slow_http_client(timeout: Duration) -> Client {
+    Client::builder()
+        .timeout(timeout)
+        .user_agent(concat!("discordy-admin-bff/", env!("CARGO_PKG_VERSION")))
+        .build()
+        .unwrap_or_default()
+}
+
 /// Calls a service's `/internal/v1/*` API with the shared `X-Internal-Token` (P4).
 #[derive(Clone)]
 pub struct InternalClient {

@@ -5,12 +5,18 @@ use admin_bff::application::ports::api_admin::{
     ApiAdmin, ReportQuery, ReportStatus, Suspension, UserQuery,
 };
 use admin_bff::application::ports::gateway_admin::GatewayAdmin;
+use admin_bff::application::ports::notifier_admin::{
+    ManualPush, NotifierAdmin, PushAudience, PushReport,
+};
 use admin_bff::application::ports::platform_metrics::{HealthPanel, PlatformMetrics};
 use admin_bff::application::ports::voice_directory::VoiceDirectory;
 use admin_bff::infrastructure::etcd::voice_directory::EtcdVoiceDirectory;
 use admin_bff::infrastructure::http::api_admin_client::ApiAdminClient;
 use admin_bff::infrastructure::http::gateway_admin_client::GatewayAdminClient;
 use admin_bff::infrastructure::http::internal_client::{InternalClient, http_client};
+use admin_bff::infrastructure::http::notifier_admin_client::{
+    NotifierAdminClient, UnconfiguredNotifier,
+};
 use admin_bff::infrastructure::victoria::platform_metrics::VictoriaPlatformMetrics;
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD as B64;
@@ -427,4 +433,65 @@ async fn resolving_a_report_posts_the_resolution_and_returns_the_report() {
             message: "closed".into()
         })
     );
+}
+
+#[tokio::test]
+async fn a_manual_push_posts_the_target_text_and_actor_with_the_internal_token() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/internal/v1/manual-push"))
+        .and(header("X-Internal-Token", "dev-internal-token"))
+        .and(body_json(json!({
+            "target": {"user_id": "42"}, "title": "Hi", "body": "There",
+            "dry_run": false, "actor": "ops@discordy.dev"
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "devices": 2, "queued": 2, "dropped": 0, "truncated": false
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/internal/v1/manual-push"))
+        .and(body_json(json!({
+            "target": "all", "title": "Hi", "body": "There",
+            "dry_run": true, "actor": "ops@discordy.dev"
+        })))
+        .respond_with(ResponseTemplate::new(409).set_body_string("busy"))
+        .mount(&server)
+        .await;
+    let client = NotifierAdminClient::new(internal(&server));
+    let push = |audience, dry_run| ManualPush {
+        audience,
+        title: "Hi".into(),
+        body: "There".into(),
+        dry_run,
+        actor: "ops@discordy.dev".into(),
+    };
+    assert_eq!(
+        client
+            .send_manual(&push(PushAudience::User("42".into()), false))
+            .await,
+        Ok(PushReport {
+            devices: 2,
+            queued: 2,
+            dropped: 0,
+            truncated: false
+        })
+    );
+    assert_eq!(
+        client
+            .send_manual(&push(PushAudience::Everyone, true))
+            .await,
+        Err(PortError::Rejected {
+            status: 409,
+            message: "busy".into()
+        })
+    );
+    assert!(matches!(
+        UnconfiguredNotifier
+            .send_manual(&push(PushAudience::Everyone, true))
+            .await,
+        Err(PortError::Unavailable(_))
+    ));
 }

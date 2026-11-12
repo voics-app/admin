@@ -7,6 +7,7 @@ use crate::application::ports::audit_log::AuditLog;
 use crate::application::ports::clock::Clock;
 use crate::application::ports::feature_flags::FeatureFlagRepository;
 use crate::application::ports::gateway_admin::GatewayAdmin;
+use crate::application::ports::notifier_admin::NotifierAdmin;
 use crate::application::ports::platform_metrics::PlatformMetrics;
 use crate::application::ports::rollups::RollupReader;
 use crate::application::ports::voice_directory::VoiceDirectory;
@@ -23,6 +24,7 @@ use crate::application::use_cases::list_voice_regions::ListVoiceRegions;
 use crate::application::use_cases::resolve_report::ResolveReport;
 use crate::application::use_cases::search_guilds::SearchGuilds;
 use crate::application::use_cases::search_users::SearchUsers;
+use crate::application::use_cases::send_manual_push::SendManualPush;
 use crate::application::use_cases::set_voice_node_draining::SetVoiceNodeDraining;
 use crate::application::use_cases::suspend_user::SuspendUser;
 use crate::application::use_cases::upsert_feature_flag::UpsertFeatureFlag;
@@ -32,6 +34,7 @@ use crate::application::use_cases::upsert_feature_flag::UpsertFeatureFlag;
 pub struct Ports {
     pub api: Arc<dyn ApiAdmin>,
     pub gateway: Arc<dyn GatewayAdmin>,
+    pub notifier: Arc<dyn NotifierAdmin>,
     pub rollups: Arc<dyn RollupReader>,
     pub voice: Arc<dyn VoiceDirectory>,
     pub metrics: Arc<dyn PlatformMetrics>,
@@ -53,6 +56,7 @@ pub struct AppState {
     pub search_users: Arc<SearchUsers>,
     pub search_guilds: Arc<SearchGuilds>,
     pub suspend_user: Arc<SuspendUser>,
+    pub send_push: Arc<SendManualPush>,
     pub list_reports: Arc<ListReports>,
     pub resolve_report: Arc<ResolveReport>,
     pub list_flags: Arc<ListFeatureFlags>,
@@ -72,6 +76,7 @@ impl AppState {
         let Ports {
             api,
             gateway,
+            notifier,
             rollups,
             voice,
             metrics,
@@ -98,6 +103,7 @@ impl AppState {
             list_reports: Arc::new(ListReports::new(api.clone())),
             resolve_report: Arc::new(ResolveReport::new(api.clone(), audit.clone())),
             suspend_user: Arc::new(SuspendUser::new(api, audit.clone(), clock)),
+            send_push: Arc::new(SendManualPush::new(notifier, audit.clone())),
             list_flags: Arc::new(ListFeatureFlags::new(flags.clone())),
             upsert_flag: Arc::new(UpsertFeatureFlag::new(flags.clone(), audit.clone())),
             delete_flag: Arc::new(DeleteFeatureFlag::new(flags, audit.clone())),

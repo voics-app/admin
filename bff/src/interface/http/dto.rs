@@ -292,6 +292,30 @@ pub struct SuspendRequest {
     pub until: Option<String>,
 }
 
+/// `{"target": "all" | {"user_id": "123"}, "title", "body", "confirm_everyone"?}` for the
+/// notification preview and send endpoints.
+#[derive(Deserialize)]
+pub struct NotificationRequest {
+    pub target: NotificationTarget,
+    pub title: String,
+    pub body: String,
+    #[serde(default)]
+    pub confirm_everyone: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+pub enum NotificationTarget {
+    Everyone(EveryoneMarker),
+    User { user_id: String },
+}
+
+#[derive(Deserialize)]
+pub enum EveryoneMarker {
+    #[serde(rename = "all")]
+    All,
+}
+
 #[derive(Serialize)]
 pub struct FlagDto {
     pub key: String,

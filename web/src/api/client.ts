@@ -6,8 +6,10 @@ import type {
   HealthPanel,
   HealthSeries,
   Me,
+  NotificationDraft,
   Overview,
   PlatformHealth,
+  PushReport,
   Range,
   ReportPage,
   ReportResolution,
@@ -93,6 +95,13 @@ export const api = {
     }),
   searchGuilds: (text: string) =>
     request<{ guilds: GuildSummary[] }>(`/guilds${query({ query: text })}`),
+  previewNotification: (draft: NotificationDraft) =>
+    request<PushReport>("/notifications/preview", { method: "POST", body: JSON.stringify(draft) }),
+  sendNotification: (draft: NotificationDraft) =>
+    request<PushReport>("/notifications", {
+      method: "POST",
+      body: JSON.stringify({ ...draft, confirm_everyone: draft.target === "all" }),
+    }),
   flags: () => request<{ flags: Flag[] }>("/flags"),
   putFlag: (key: string, input: FlagInput) =>
     request<Flag>(`/flags/${encodeURIComponent(key)}`, { method: "PUT", body: JSON.stringify(input) }),
