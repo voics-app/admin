@@ -6,6 +6,7 @@ pub mod audit_log;
 pub mod clock;
 pub mod feature_flags;
 pub mod gateway_admin;
+pub mod notifier_admin;
 pub mod platform_metrics;
 pub mod rollups;
 pub mod voice_directory;

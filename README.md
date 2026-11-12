@@ -2,7 +2,7 @@
 
 Operations portal for Voics: a Rust backend-for-frontend (`bff/`, axum + sqlx) and a React SPA (`web/`, Vite + Recharts). The SPA is embedded in the BFF binary, so the whole portal ships as one image listening on port 8090.
 
-Pages: Overview, Usage, Voice regions (drain/resume nodes), Platform health, Trust & Safety (user and guild lookup, suspension), Feature flags, Audit log.
+Pages: Overview, Usage, Voice regions (drain/resume nodes), Platform health, Trust & Safety (user and guild lookup, suspension), Reports, Send notification (`/notify`: a push notification by hand to one user or everyone), Feature flags, Audit log.
 
 The BFF counts events from every Redpanda topic into minute, hour and day rollups in its own database (`discordy_admin`). It reads counters only and never stores message content.
 
@@ -40,6 +40,7 @@ All configuration is environment variables, validated at startup (all problems a
 | `ADMIN_DATABASE_URL` | yes | Postgres URL of `discordy_admin` (migrations run at startup) |
 | `API_INTERNAL_URL` | yes | api service base URL (P4 admin endpoints) |
 | `GATEWAY_INTERNAL_URL` | yes | gateway base URL (stats) |
+| `NOTIFIER_INTERNAL_URL` | no | notifier base URL (`http://notifier.voics-apps:8085`), for Send notification. Without it the page answers that sending is not configured |
 | `VICTORIAMETRICS_URL` | yes | PromQL endpoint |
 | `ETCD_ENDPOINTS` | yes | comma-separated etcd endpoints (voice node registry) |
 | `ADMIN_ALLOWED_EMAILS` | yes | comma-separated allow-list, the second gate after Cloudflare Access |
@@ -48,7 +49,7 @@ All configuration is environment variables, validated at startup (all problems a
 
 ## Auth
 
-Every `/admin-api` request needs a valid `Cf-Access-Jwt-Assertion` (RS256, verified against `https://<team>.cloudflareaccess.com/cdn-cgi/access/certs`, issuer and audience checked) whose email is on `ADMIN_ALLOWED_EMAILS`. Failures return 401 or 403 with the platform `{code, message}` envelope. Mutating actions (drain, suspend, flags) are written to the audit log with the admin's email.
+Every `/admin-api` request needs a valid `Cf-Access-Jwt-Assertion` (RS256, verified against `https://<team>.cloudflareaccess.com/cdn-cgi/access/certs`, issuer and audience checked) whose email is on `ADMIN_ALLOWED_EMAILS`. Failures return 401 or 403 with the platform `{code, message}` envelope. Mutating actions (drain, suspend, flags, sending a notification) are written to the audit log with the admin's email.
 
 Ops endpoints (no auth): `/healthz`, `/readyz`, `/metrics`.
 

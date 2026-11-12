@@ -23,6 +23,7 @@ struct Harness {
     api: Arc<FakeApi>,
     gateway: Arc<FakeGateway>,
     audit: Arc<FakeAudit>,
+    notifier: Arc<FakeNotifier>,
     rollups: Arc<FakeRollups>,
 }
 
@@ -30,10 +31,12 @@ fn harness_with(accept_dev_header: bool, metrics: FakeMetrics) -> Harness {
     let api = Arc::new(FakeApi::default());
     let gateway = Arc::new(FakeGateway::default());
     let audit = Arc::new(FakeAudit::default());
+    let notifier = Arc::new(FakeNotifier::default());
     let rollups = Arc::new(FakeRollups::default());
     let ports = Ports {
         api: api.clone(),
         gateway: gateway.clone(),
+        notifier: notifier.clone(),
         rollups: rollups.clone(),
         voice: Arc::new(FakeVoice::default()),
         metrics: Arc::new(metrics),
@@ -51,6 +54,7 @@ fn harness_with(accept_dev_header: bool, metrics: FakeMetrics) -> Harness {
         api,
         gateway,
         audit,
+        notifier,
         rollups,
     }
 }
@@ -349,6 +353,102 @@ async fn user_search_and_suspension() {
         .body(Body::from("{"))
         .unwrap();
     assert_eq!(send(&h.app, malformed).await.0, StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn notification_preview_counts_devices_and_send_is_audited() {
+    let h = harness();
+    let everyone = json!({"target": "all", "title": "Hi", "body": "There"});
+    let (status, body) = send(
+        &h.app,
+        json_body(
+            as_admin(Method::POST, "/admin-api/notifications/preview"),
+            everyone.clone(),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        (body["devices"].clone(), body["queued"].clone()),
+        (json!(120), json!(0))
+    );
+    assert!(
+        h.audit.entries.lock().unwrap().is_empty(),
+        "a preview is not audited"
+    );
+
+    // Everyone needs the confirmation.
+    let (status, _) = send(
+        &h.app,
+        json_body(
+            as_admin(Method::POST, "/admin-api/notifications"),
+            everyone.clone(),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let mut confirmed = everyone;
+    confirmed["confirm_everyone"] = json!(true);
+    let (status, body) = send(
+        &h.app,
+        json_body(
+            as_admin(Method::POST, "/admin-api/notifications"),
+            confirmed,
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["queued"], 120);
+
+    let one = json!({"target": {"user_id": "42"}, "title": "Hi", "body": "There"});
+    let (status, body) = send(
+        &h.app,
+        json_body(as_admin(Method::POST, "/admin-api/notifications"), one),
+    )
+    .await;
+    assert_eq!(
+        (status, body["devices"].clone()),
+        (StatusCode::OK, json!(2))
+    );
+
+    let entries = h.audit.entries.lock().unwrap();
+    assert_eq!(entries.len(), 2);
+    assert_eq!(
+        (entries[0].actor_email.as_str(), entries[0].target.as_str()),
+        (ADMIN, "all")
+    );
+    assert_eq!(entries[1].target, "user:42");
+    let calls = h.notifier.calls.lock().unwrap();
+    assert_eq!(calls.len(), 3);
+}
+
+#[tokio::test]
+async fn notification_requests_are_validated_and_need_an_admin() {
+    let h = harness();
+    for bad in [
+        json!({"target": "all", "title": "", "body": "x"}),
+        json!({"target": {"user_id": "bob"}, "title": "t", "body": "x"}),
+        json!({"target": "everyone", "title": "t", "body": "x"}),
+        json!({"title": "t", "body": "x"}),
+    ] {
+        let (status, _) = send(
+            &h.app,
+            json_body(as_admin(Method::POST, "/admin-api/notifications"), bad),
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+    }
+    assert!(h.notifier.calls.lock().unwrap().is_empty());
+    let anonymous = request(Method::POST, "/admin-api/notifications")
+        .header("x-discordy-admin", "1")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({"target": "all", "title": "t", "body": "x", "confirm_everyone": true})
+                .to_string(),
+        ))
+        .unwrap();
+    assert_eq!(send(&h.app, anonymous).await.0, StatusCode::UNAUTHORIZED);
+    assert!(h.notifier.calls.lock().unwrap().is_empty());
 }
 
 #[tokio::test]

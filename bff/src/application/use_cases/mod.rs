@@ -15,6 +15,7 @@ pub mod record_platform_totals;
 pub mod resolve_report;
 pub mod search_guilds;
 pub mod search_users;
+pub mod send_manual_push;
 pub mod set_voice_node_draining;
 pub mod suspend_user;
 pub mod upsert_feature_flag;

@@ -15,6 +15,7 @@ use super::ports::audit_log::AuditLog;
 use super::ports::clock::Clock;
 use super::ports::feature_flags::{FeatureFlagRepository, StoredFlag};
 use super::ports::gateway_admin::{GatewayAdmin, GatewayStats};
+use super::ports::notifier_admin::{ManualPush, NotifierAdmin, PushAudience, PushReport};
 use super::ports::platform_metrics::{
     HealthPanel, LabelledSeries, LabelledValue, PlatformMetrics, TargetAvailability,
 };
@@ -376,6 +377,49 @@ impl GatewayAdmin for FakeGateway {
     }
 }
 
+/// A notifier that reports two devices for a user and 120 for everyone, and records each call.
+pub struct FakeNotifier {
+    pub calls: Mutex<Vec<ManualPush>>,
+    pub result: Mutex<PortResult<PushReport>>,
+}
+
+impl Default for FakeNotifier {
+    fn default() -> Self {
+        Self {
+            calls: Mutex::new(vec![]),
+            result: Mutex::new(Ok(PushReport {
+                devices: 0,
+                queued: 0,
+                dropped: 0,
+                truncated: false,
+            })),
+        }
+    }
+}
+
+#[async_trait]
+impl NotifierAdmin for FakeNotifier {
+    async fn send_manual(&self, push: &ManualPush) -> PortResult<PushReport> {
+        self.calls.lock().unwrap().push(push.clone());
+        let configured = self.result.lock().unwrap().clone();
+        match configured {
+            Ok(report) if report.devices == 0 => {
+                let devices = match push.audience {
+                    PushAudience::User(_) => 2,
+                    PushAudience::Everyone => 120,
+                };
+                Ok(PushReport {
+                    devices,
+                    queued: if push.dry_run { 0 } else { devices },
+                    dropped: 0,
+                    truncated: false,
+                })
+            }
+            other => other,
+        }
+    }
+}
+
 pub fn voice_node(id: &str, region: &str, users: u64) -> VoiceNode {
     VoiceNode {
         node_id: id.into(),
@@ -514,11 +558,15 @@ impl FeatureFlagRepository for FakeFlags {
 #[derive(Default)]
 pub struct FakeAudit {
     pub entries: Mutex<Vec<NewAuditEntry>>,
+    pub fail_record: Mutex<bool>,
 }
 
 #[async_trait]
 impl AuditLog for FakeAudit {
     async fn record(&self, entry: &NewAuditEntry) -> PortResult<()> {
+        if *self.fail_record.lock().unwrap() {
+            return Err(unavailable());
+        }
         self.entries.lock().unwrap().push(entry.clone());
         Ok(())
     }
