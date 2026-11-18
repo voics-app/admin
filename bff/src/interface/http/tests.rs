@@ -320,6 +320,15 @@ async fn platform_health_series_validates_the_panel() {
     .await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["series"][0]["label"], "api");
+    for panel in ["push_drops", "push_queue", "push_in_flight"] {
+        let (status, body) = get(
+            &h.app,
+            &format!("/admin-api/platform/health/series?panel={panel}&range=1h"),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["panel"], panel);
+    }
     assert_eq!(
         get(&h.app, "/admin-api/platform/health/series?panel=cpu")
             .await

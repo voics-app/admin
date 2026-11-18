@@ -121,7 +121,10 @@ export type HealthPanel =
   | "latency_p95"
   | "consumer_lag"
   | "db_latency_p95"
-  | "gateway_sessions";
+  | "gateway_sessions"
+  | "push_drops"
+  | "push_queue"
+  | "push_in_flight";
 
 export interface HealthSeries {
   panel: HealthPanel;

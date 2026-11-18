@@ -35,16 +35,22 @@ pub enum HealthPanel {
     ConsumerLag,
     DbLatencyP95,
     GatewaySessions,
+    PushDrops,
+    PushQueue,
+    PushInFlight,
 }
 
 impl HealthPanel {
-    pub const ALL: [HealthPanel; 6] = [
+    pub const ALL: [HealthPanel; 9] = [
         HealthPanel::RequestRate,
         HealthPanel::ErrorRatio,
         HealthPanel::LatencyP95,
         HealthPanel::ConsumerLag,
         HealthPanel::DbLatencyP95,
         HealthPanel::GatewaySessions,
+        HealthPanel::PushDrops,
+        HealthPanel::PushQueue,
+        HealthPanel::PushInFlight,
     ];
 
     pub fn as_str(self) -> &'static str {
@@ -55,6 +61,9 @@ impl HealthPanel {
             HealthPanel::ConsumerLag => "consumer_lag",
             HealthPanel::DbLatencyP95 => "db_latency_p95",
             HealthPanel::GatewaySessions => "gateway_sessions",
+            HealthPanel::PushDrops => "push_drops",
+            HealthPanel::PushQueue => "push_queue",
+            HealthPanel::PushInFlight => "push_in_flight",
         }
     }
 
