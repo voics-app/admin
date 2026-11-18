@@ -92,9 +92,9 @@ export function ReportsPage() {
                   <td>{formatTimestamp(r.created_at)}</td>
                   <td>{categoryLabel(r.category)}</td>
                   <td>
-                    {r.kind === "guild" ? <>Guild <span className="mono">{r.guild_id}</span></> : <>@{r.reported.username ?? "unknown"}<div className="muted mono">{r.reported.id}</div></>}
+                    {r.kind === "channel" ? <>Channel <span className="mono">{r.channel_id}</span></> : r.kind === "guild" ? <>Guild <span className="mono">{r.guild_id}</span></> : <>@{r.reported.username ?? "unknown"}<div className="muted mono">{r.reported.id}</div></>}
                   </td>
-                  <td>{r.kind === "message" ? "Message" : r.kind === "guild" ? "Guild listing" : "User"}</td>
+                  <td>{r.kind === "message" ? "Message" : r.kind === "guild" ? "Guild listing" : r.kind === "channel" ? "Channel" : "User"}</td>
                   <td>
                     <EvidenceBadge report={r} />
                   </td>
@@ -130,6 +130,7 @@ export function ReportsPage() {
 }
 
 function EvidenceBadge({ report }: { report: ReportSummary }) {
+  if (report.kind === "channel") return <StatusBadge tone="neutral" label="Channel metadata" />;
   if (report.kind === "guild") return <StatusBadge tone="neutral" label="Public listing" />;
   if (report.kind === "user") return <span className="muted">Profile</span>;
   if (report.content_source === "server") return <StatusBadge tone="good" label="Copied by server" />;
@@ -175,7 +176,7 @@ function ReviewDialog({
             @{report.reporter.username ?? "unknown"} <span className="mono muted">{report.reporter.id}</span>
           </dd>
           {report.kind === "guild" && <><dt>Guild</dt><dd className="mono">{report.guild_id}</dd></>}
-          <dt>{report.kind === "guild" ? "Owner at filing" : "Reported"}</dt>
+          <dt>{report.kind === "guild" || report.kind === "channel" ? "Owner at filing" : "Reported"}</dt>
           <dd>
             @{report.reported.username ?? "unknown"} <span className="mono muted">{report.reported.id}</span>
           </dd>
@@ -232,6 +233,13 @@ function ReviewDialog({
 }
 
 function Evidence({ report }: { report: ReportSummary }) {
+  if (report.kind === "channel") {
+    return <div className="field">
+      <span className="label">Channel metadata, copied from the server when the report was filed</span>
+      <blockquote className="evidence">{report.content}</blockquote>
+      <p className="muted">Only channel ID, server ID, parent ID, name, type and age-restricted flag are included. Messages, topics, attachments and member lists were not fetched. The associated account is the server owner at filing; this is a channel report. Resolving it does not change the channel or suspend its owner.</p>
+    </div>;
+  }
   if (report.kind === "guild") {
     return <div className="field">
       <span className="label">Public listing, copied from the server when the report was filed</span>

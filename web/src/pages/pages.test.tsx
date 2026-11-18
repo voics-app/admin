@@ -294,6 +294,22 @@ describe("Reports", () => {
     await waitFor(() => expect(mocked.resolveReport).toHaveBeenCalledWith("9", "resolved", undefined));
   });
 
+  it("reviews channel metadata as a channel without presenting it as message evidence or an automatic owner action", async () => {
+    const metadata = JSON.stringify({ id: "3", guild_id: "4", parent_id: null, name: "原文 <img src=x>", type: 0, nsfw: true });
+    mocked.reports.mockResolvedValue({ reports: [report({ kind: "channel", message_id: null, delivery_mode: null, content: metadata })], next_after: null });
+    mocked.resolveReport.mockResolvedValue(report({ kind: "channel", status: "resolved" }));
+    render(<ReportsPage />);
+    expect(await screen.findByText("Channel metadata")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Review report 9" }));
+    expect(screen.getByText("Owner at filing")).toBeInTheDocument();
+    expect(screen.getByText(metadata)).toBeInTheDocument();
+    expect(screen.getByText(/Messages, topics, attachments and member lists were not fetched/)).toBeInTheDocument();
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Message text, copied/)).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Mark resolved" }));
+    await waitFor(() => expect(mocked.resolveReport).toHaveBeenCalledWith("9", "resolved", undefined));
+  });
+
   it("shows server-copied evidence and dismisses with a note", async () => {
     mocked.reports.mockResolvedValue({ reports: [report()], next_after: null });
     mocked.resolveReport.mockResolvedValue(report({ status: "dismissed" }));
