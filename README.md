@@ -1,5 +1,10 @@
 # Voics admin
 
+Channel reports in Reports show a distinct channel target, server-captured channel
+metadata and the server owner at filing. They do not include messages, attachments,
+topics or member lists, and resolving a report does not change a channel or suspend
+its owner. This supports the age-restricted channel gate in client#76.
+
 Operations portal for Voics: a Rust backend-for-frontend (`bff/`, axum + sqlx) and a React SPA (`web/`, Vite + Recharts). The SPA is embedded in the BFF binary, so the whole portal ships as one image listening on port 8090.
 
 Pages: Overview, Usage, Voice regions (drain/resume nodes), Platform health, Trust & Safety (user and guild lookup, suspension), Reports, Send notification (`/notify`: a push notification by hand to one user or everyone), Feature flags, Audit log.
