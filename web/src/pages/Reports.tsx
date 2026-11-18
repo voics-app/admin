@@ -55,7 +55,7 @@ export function ReportsPage() {
     <div className="stack">
       <PageHead
         title="Reports"
-        subtitle="Messages and users reported from the apps. Resolving and dismissing are written to the audit log; reporters are never shown to the reported user."
+        subtitle="Messages, users and public server listings reported from the apps. Resolving and dismissing are written to the audit log; reporters are never shown to the reported user."
       >
         <div className="segmented" role="group" aria-label="Report status">
           {STATUSES.map((s) => (
@@ -92,10 +92,9 @@ export function ReportsPage() {
                   <td>{formatTimestamp(r.created_at)}</td>
                   <td>{categoryLabel(r.category)}</td>
                   <td>
-                    @{r.reported.username ?? "unknown"}
-                    <div className="muted mono">{r.reported.id}</div>
+                    {r.kind === "guild" ? <>Guild <span className="mono">{r.guild_id}</span></> : <>@{r.reported.username ?? "unknown"}<div className="muted mono">{r.reported.id}</div></>}
                   </td>
-                  <td>{r.kind === "message" ? "Message" : "User"}</td>
+                  <td>{r.kind === "message" ? "Message" : r.kind === "guild" ? "Guild listing" : "User"}</td>
                   <td>
                     <EvidenceBadge report={r} />
                   </td>
@@ -131,6 +130,7 @@ export function ReportsPage() {
 }
 
 function EvidenceBadge({ report }: { report: ReportSummary }) {
+  if (report.kind === "guild") return <StatusBadge tone="neutral" label="Public listing" />;
   if (report.kind === "user") return <span className="muted">Profile</span>;
   if (report.content_source === "server") return <StatusBadge tone="good" label="Copied by server" />;
   if (report.content_source === "reporter") return <StatusBadge tone="warning" label="From reporter" />;
@@ -174,7 +174,8 @@ function ReviewDialog({
           <dd>
             @{report.reporter.username ?? "unknown"} <span className="mono muted">{report.reporter.id}</span>
           </dd>
-          <dt>Reported</dt>
+          {report.kind === "guild" && <><dt>Guild</dt><dd className="mono">{report.guild_id}</dd></>}
+          <dt>{report.kind === "guild" ? "Owner at filing" : "Reported"}</dt>
           <dd>
             @{report.reported.username ?? "unknown"} <span className="mono muted">{report.reported.id}</span>
           </dd>
@@ -231,6 +232,13 @@ function ReviewDialog({
 }
 
 function Evidence({ report }: { report: ReportSummary }) {
+  if (report.kind === "guild") {
+    return <div className="field">
+      <span className="label">Public listing, copied from the server when the report was filed</span>
+      <blockquote className="evidence">{report.content}</blockquote>
+      <p className="muted">Private channels, members and messages are not included. Resolving this report does not remove the listing.</p>
+    </div>;
+  }
   if (report.kind === "user") {
     return <p className="muted">User report: no message attached. Look the account up under Trust &amp; Safety to suspend it.</p>;
   }

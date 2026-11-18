@@ -281,6 +281,19 @@ describe("Reports", () => {
     ...overrides,
   });
 
+  it("reviews a public listing snapshot and identifies its owner at filing", async () => {
+    mocked.reports.mockResolvedValue({ reports: [report({ kind: "guild", channel_id: null, message_id: null, delivery_mode: null, content: "Name: Public hub\nDescription: Public listing text" })], next_after: null });
+    mocked.resolveReport.mockResolvedValue(report({ kind: "guild", status: "resolved" }));
+    render(<ReportsPage />);
+    expect(await screen.findByText("Guild listing")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Review report 9" }));
+    expect(screen.getByText("Owner at filing")).toBeInTheDocument();
+    expect(screen.getByText(/Public listing, copied/)).toBeInTheDocument();
+    expect(screen.getByText(/does not remove the listing/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Mark resolved" }));
+    await waitFor(() => expect(mocked.resolveReport).toHaveBeenCalledWith("9", "resolved", undefined));
+  });
+
   it("shows server-copied evidence and dismisses with a note", async () => {
     mocked.reports.mockResolvedValue({ reports: [report()], next_after: null });
     mocked.resolveReport.mockResolvedValue(report({ status: "dismissed" }));
