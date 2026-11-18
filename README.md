@@ -53,6 +53,23 @@ Every `/admin-api` request needs a valid `Cf-Access-Jwt-Assertion` (RS256, verif
 
 Ops endpoints (no auth): `/healthz`, `/readyz`, `/metrics`.
 
+## Notifier backlog and drops
+
+Platform health includes **Dropped pushes (5m)** by provider, **Push queue** and **Push sends in
+flight** by notifier instance. These use the existing authenticated
+`GET /admin-api/platform/health/series?panel=...&range=...` response shape
+`{panel, range, series:[{label, points:[[timestamp,value]]}]`. Added panel keys are `push_drops`,
+`push_queue` and `push_in_flight`. No token, recipient or message content is queried.
+
+`push_drops` uses `sum by (provider) (increase(notifier_pushes_total{outcome="dropped"}[5m]))`.
+Each chart point is the estimated drop count for the preceding five minutes; it handles counter
+resets and is not a count over the entire selected range. Queue and in-flight charts use the
+corresponding `notifier_queue_depth` and `notifier_in_flight` gauges. In-flight includes retry waits.
+The notifier also exports configured limits as `notifier_queue_capacity` and
+`notifier_in_flight_limit`; compare these when investigating saturation. An empty series means
+no samples, not zero loss. The existing notifier scrape job must be reachable in VictoriaMetrics.
+No provider credentials or new BFF configuration are required by these read-only panels.
+
 ## Pending owner actions
 
 - Create the Cloudflare Access application for the admin hostname and set `CF_ACCESS_TEAM_DOMAIN` and `CF_ACCESS_AUD` as secrets (needs the Cloudflare token).

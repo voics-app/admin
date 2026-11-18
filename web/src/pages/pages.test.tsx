@@ -142,7 +142,23 @@ describe("Platform health", () => {
     render(<PlatformHealthPage />);
     expect(await screen.findByText("Healthy")).toBeInTheDocument();
     expect(screen.getByText("Down")).toBeInTheDocument();
-    await waitFor(() => expect(mocked.healthSeries).toHaveBeenCalledTimes(6));
+    await waitFor(() => expect(mocked.healthSeries).toHaveBeenCalledTimes(9));
+  });
+
+  it("shows provider drop counts in an accessible table and requests notifier backlog panels", async () => {
+    mocked.platformHealth.mockResolvedValue({ metrics_reachable: true, services: [], consumer_lag: [], db_latency_p95_ms: [], gateway: null });
+    mocked.healthSeries.mockImplementation((panel, range) => Promise.resolve({ panel, range, series: panel === "push_drops" ? [
+      { label: "apns", points: [["2026-11-18T10:00:00Z", 45000]] },
+      { label: "fcm", points: [["2026-11-18T10:00:00Z", 45000]] },
+    ] : [] }));
+    render(<PlatformHealthPage />);
+    const drops = await screen.findByRole("region", { name: "Dropped pushes (5m)" });
+    await userEvent.click(within(drops).getByRole("button", { name: "Table" }));
+    expect(within(drops).getByRole("columnheader", { name: "apns" })).toBeInTheDocument();
+    expect(within(drops).getByRole("columnheader", { name: "fcm" })).toBeInTheDocument();
+    expect(within(drops).getAllByText("45,000")).toHaveLength(2);
+    expect(mocked.healthSeries).toHaveBeenCalledWith("push_queue", "1h");
+    expect(mocked.healthSeries).toHaveBeenCalledWith("push_in_flight", "1h");
   });
 
   it("labels services with no scrape targets as no data", async () => {
