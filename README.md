@@ -70,6 +70,15 @@ The notifier also exports configured limits as `notifier_queue_capacity` and
 no samples, not zero loss. The existing notifier scrape job must be reachable in VictoriaMetrics.
 No provider credentials or new BFF configuration are required by these read-only panels.
 
+## Discovery listing reports
+
+The Reports queue also accepts `kind: guild` from discovery. It identifies the
+guild and owner at filing, and labels evidence as a public listing snapshot.
+Only the public name, description, category and tags are captured; no private
+channels, members or messages are copied. Resolve/dismiss uses the existing
+audited operator flow and does not remove the listing. No new BFF route,
+credential or configuration is required; deploy with the paired api#45 change.
+
 ## Pending owner actions
 
 - Create the Cloudflare Access application for the admin hostname and set `CF_ACCESS_TEAM_DOMAIN` and `CF_ACCESS_AUD` as secrets (needs the Cloudflare token).

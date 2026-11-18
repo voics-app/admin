@@ -209,7 +209,7 @@ export interface ReportParty {
 
 export interface ReportSummary {
   id: string;
-  kind: "message" | "user";
+  kind: "message" | "user" | "guild";
   category: string;
   note: string | null;
   status: ReportStatus;
