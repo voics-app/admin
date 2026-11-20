@@ -45,7 +45,8 @@ All configuration is environment variables, validated at startup (all problems a
 | `ETCD_ENDPOINTS` | yes | comma-separated etcd endpoints (voice node registry) |
 | `ADMIN_ALLOWED_EMAILS` | yes | comma-separated allow-list, the second gate after Cloudflare Access |
 | `CF_ACCESS_TEAM_DOMAIN` | production | Cloudflare Zero Trust team name, used to fetch the JWKS |
-| `CF_ACCESS_AUD` | production | audience tag of the Access application |
+| `CF_ACCESS_AUD` | production | audience tag of the Access application (legacy single-host mode) |
+| `CF_ACCESS_HOST_AUDIENCES` | optional | comma-separated exact `hostname=audience` pairs; when set, unknown hosts are rejected and each host requires its own audience |
 
 ## Auth
 

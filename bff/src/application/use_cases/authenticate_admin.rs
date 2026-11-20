@@ -10,6 +10,7 @@ use crate::domain::admin_allowlist::AdminAllowlist;
 pub struct AdminCredentials {
     /// `Cf-Access-Jwt-Assertion` header.
     pub access_assertion: Option<String>,
+    pub host: Option<String>,
     /// `X-Dev-Admin-Email` header, honoured only in local development.
     pub dev_email: Option<String>,
 }
@@ -81,10 +82,13 @@ impl AuthenticateAdmin {
         else {
             return Err(AuthenticationError::MissingCredentials);
         };
-        verifier.verify(token).await.map_err(|error| match error {
-            AccessTokenError::Invalid(reason) => AuthenticationError::InvalidAssertion(reason),
-            AccessTokenError::KeysUnavailable(_) => AuthenticationError::KeysUnavailable,
-        })
+        verifier
+            .verify(token, credentials.host.as_deref())
+            .await
+            .map_err(|error| match error {
+                AccessTokenError::Invalid(reason) => AuthenticationError::InvalidAssertion(reason),
+                AccessTokenError::KeysUnavailable(_) => AuthenticationError::KeysUnavailable,
+            })
     }
 }
 
@@ -105,6 +109,7 @@ mod tests {
         AdminCredentials {
             access_assertion: Some(token.into()),
             dev_email: None,
+            host: None,
         }
     }
 
@@ -112,6 +117,7 @@ mod tests {
         AdminCredentials {
             access_assertion: None,
             dev_email: Some(email.into()),
+            host: None,
         }
     }
 

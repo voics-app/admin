@@ -12,5 +12,5 @@ pub enum AccessTokenError {
 /// Verifies an identity-provider assertion (Cloudflare Access JWT) and returns the email it vouches for.
 #[async_trait]
 pub trait AccessTokenVerifier: Send + Sync {
-    async fn verify(&self, token: &str) -> Result<String, AccessTokenError>;
+    async fn verify(&self, token: &str, host: Option<&str>) -> Result<String, AccessTokenError>;
 }

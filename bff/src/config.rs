@@ -15,6 +15,7 @@ pub enum Environment {
 pub struct CloudflareAccess {
     pub team_domain: String,
     pub audience: String,
+    pub host_audiences: std::collections::HashMap<String, String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -134,12 +135,40 @@ impl Config {
 
         let team = r.optional("CF_ACCESS_TEAM_DOMAIN");
         let audience = r.optional("CF_ACCESS_AUD");
+        let mut host_audiences = std::collections::HashMap::new();
+        if let Some(mapping) = (r.lookup)("CF_ACCESS_HOST_AUDIENCES") {
+            if mapping.trim().is_empty() {
+                r.problems
+                    .push("CF_ACCESS_HOST_AUDIENCES must not be empty when set".into());
+            }
+            for pair in mapping.split(',') {
+                let Some((host, aud)) = pair.trim().split_once('=') else {
+                    r.problems
+                        .push("CF_ACCESS_HOST_AUDIENCES requires hostname=audience pairs".into());
+                    continue;
+                };
+                let host = host.trim().to_ascii_lowercase();
+                let aud = aud.trim();
+                if host.is_empty()
+                    || aud.is_empty()
+                    || !host
+                        .bytes()
+                        .all(|b| b.is_ascii_alphanumeric() || b == b'.' || b == b'-')
+                    || host_audiences.insert(host, aud.to_owned()).is_some()
+                {
+                    r.problems.push(
+                        "CF_ACCESS_HOST_AUDIENCES contains an invalid or duplicate hostname".into(),
+                    );
+                }
+            }
+        }
         let cloudflare_access = match (team, audience) {
             (Some(team_domain), Some(audience)) => Some(CloudflareAccess {
                 team_domain,
                 audience,
+                host_audiences,
             }),
-            (None, None) if environment == Environment::Local => None,
+            (None, None) if environment == Environment::Local && host_audiences.is_empty() => None,
             _ => {
                 r.problems.push("CF_ACCESS_TEAM_DOMAIN and CF_ACCESS_AUD are both required (optional only in local)".into());
                 None
@@ -216,6 +245,31 @@ mod tests {
         );
         env.insert("NOTIFIER_INTERNAL_URL", "notifier:8085");
         assert!(load(&env).unwrap_err().0[0].contains("NOTIFIER_INTERNAL_URL"));
+    }
+
+    #[test]
+    fn host_audiences_are_explicit_and_duplicate_hosts_are_rejected() {
+        let mut env = base();
+        env.insert(
+            "CF_ACCESS_HOST_AUDIENCES",
+            "admin.voics.nl=short,discordy-admin.voics.nl=old",
+        );
+        let cf = load(&env).unwrap().cloudflare_access.unwrap();
+        assert_eq!(
+            cf.host_audiences.get("admin.voics.nl").map(String::as_str),
+            Some("short")
+        );
+        assert_eq!(cf.audience, "aud");
+        for bad in [
+            "admin.voics.nl=short,ADMIN.VOICS.NL=old",
+            "admin.voics.nl",
+            "admin.voics.nl=",
+            "https://admin.voics.nl=aud",
+            "",
+        ] {
+            env.insert("CF_ACCESS_HOST_AUDIENCES", bad);
+            assert!(load(&env).is_err(), "accepted {bad}");
+        }
     }
 
     #[test]

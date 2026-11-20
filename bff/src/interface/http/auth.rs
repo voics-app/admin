@@ -29,6 +29,12 @@ pub async fn require_admin(
     let headers = request.headers();
     let credentials = AdminCredentials {
         access_assertion: header(headers, ACCESS_ASSERTION_HEADER),
+        host: if headers.get_all("host").iter().count() > 1 {
+            None
+        } else {
+            header(headers, "host")
+                .or_else(|| request.uri().authority().map(|a| a.as_str().to_owned()))
+        },
         dev_email: header(headers, DEV_EMAIL_HEADER),
     };
     let is_mutation = !matches!(
