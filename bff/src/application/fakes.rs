@@ -597,7 +597,7 @@ pub struct FakeVerifier;
 
 #[async_trait]
 impl AccessTokenVerifier for FakeVerifier {
-    async fn verify(&self, token: &str) -> Result<String, AccessTokenError> {
+    async fn verify(&self, token: &str, _host: Option<&str>) -> Result<String, AccessTokenError> {
         if token == "keys-down" {
             return Err(AccessTokenError::KeysUnavailable(
                 "jwks fetch failed".into(),

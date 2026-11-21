@@ -12,6 +12,7 @@ use tower::ServiceExt;
 use super::router::router;
 use super::state::{AppState, Ports};
 use crate::application::fakes::*;
+use crate::application::ports::access_verifier::{AccessTokenError, AccessTokenVerifier};
 use crate::application::ports::platform_metrics::TargetAvailability;
 use crate::application::use_cases::authenticate_admin::AuthenticateAdmin;
 use crate::domain::admin_allowlist::AdminAllowlist;
@@ -28,6 +29,14 @@ struct Harness {
 }
 
 fn harness_with(accept_dev_header: bool, metrics: FakeMetrics) -> Harness {
+    harness_with_verifier(accept_dev_header, metrics, Arc::new(FakeVerifier))
+}
+
+fn harness_with_verifier(
+    accept_dev_header: bool,
+    metrics: FakeMetrics,
+    verifier: Arc<dyn AccessTokenVerifier>,
+) -> Harness {
     let api = Arc::new(FakeApi::default());
     let gateway = Arc::new(FakeGateway::default());
     let audit = Arc::new(FakeAudit::default());
@@ -45,7 +54,7 @@ fn harness_with(accept_dev_header: bool, metrics: FakeMetrics) -> Harness {
         clock: Arc::new(FixedClock::default()),
     };
     let auth = AuthenticateAdmin::new(
-        Some(Arc::new(FakeVerifier)),
+        Some(verifier),
         AdminAllowlist::parse(ADMIN),
         accept_dev_header,
     );
@@ -93,6 +102,34 @@ fn json_body(builder: axum::http::request::Builder, value: Value) -> Request<Bod
 }
 
 // --- auth middleware ---
+
+struct HostVerifier;
+
+#[async_trait::async_trait]
+impl AccessTokenVerifier for HostVerifier {
+    async fn verify(&self, _token: &str, host: Option<&str>) -> Result<String, AccessTokenError> {
+        if host == Some("admin.voics.nl") {
+            Ok(ADMIN.into())
+        } else {
+            Err(AccessTokenError::Invalid("wrong host".into()))
+        }
+    }
+}
+
+#[tokio::test]
+async fn middleware_passes_the_request_host_to_the_verifier() {
+    let h = harness_with_verifier(false, FakeMetrics::default(), Arc::new(HostVerifier));
+    for (host, expected) in [
+        ("admin.voics.nl", StatusCode::OK),
+        ("discordy-admin.voics.nl", StatusCode::UNAUTHORIZED),
+    ] {
+        let req = as_admin(Method::GET, "/admin-api/me")
+            .header("host", host)
+            .body(Body::empty())
+            .unwrap();
+        assert_eq!(send(&h.app, req).await.0, expected);
+    }
+}
 
 #[tokio::test]
 async fn requests_without_credentials_are_unauthorized() {

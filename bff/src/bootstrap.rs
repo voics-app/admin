@@ -88,11 +88,10 @@ pub async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
 
     let verifier: Option<Arc<dyn AccessTokenVerifier>> =
         config.cloudflare_access.as_ref().map(|cf| {
-            Arc::new(CloudflareAccessVerifier::new(
-                http.clone(),
-                &cf.team_domain,
-                &cf.audience,
-            )) as Arc<dyn AccessTokenVerifier>
+            Arc::new(
+                CloudflareAccessVerifier::new(http.clone(), &cf.team_domain, &cf.audience)
+                    .with_host_audiences(cf.host_audiences.clone()),
+            ) as Arc<dyn AccessTokenVerifier>
         });
     let auth = AuthenticateAdmin::new(
         verifier,

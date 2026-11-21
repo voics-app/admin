@@ -32,6 +32,7 @@ pub struct CloudflareAccessVerifier {
     certs_url: String,
     issuer: String,
     audience: String,
+    host_audiences: std::collections::HashMap<String, String>,
     cache: RwLock<Option<CachedKeys>>,
 }
 
@@ -49,8 +50,17 @@ impl CloudflareAccessVerifier {
             certs_url: certs_url.to_owned(),
             issuer: issuer.to_owned(),
             audience: audience.to_owned(),
+            host_audiences: Default::default(),
             cache: RwLock::new(None),
         }
+    }
+
+    pub fn with_host_audiences(
+        mut self,
+        host_audiences: std::collections::HashMap<String, String>,
+    ) -> Self {
+        self.host_audiences = host_audiences;
+        self
     }
 
     async fn decoding_key(&self, kid: &str) -> Result<DecodingKey, AccessTokenError> {
@@ -110,7 +120,17 @@ fn team_issuer(team_domain: &str) -> String {
 
 #[async_trait]
 impl AccessTokenVerifier for CloudflareAccessVerifier {
-    async fn verify(&self, token: &str) -> Result<String, AccessTokenError> {
+    async fn verify(&self, token: &str, host: Option<&str>) -> Result<String, AccessTokenError> {
+        let audience = if self.host_audiences.is_empty() {
+            &self.audience
+        } else {
+            let host = host
+                .and_then(|h| h.parse::<axum::http::uri::Authority>().ok())
+                .map(|h| h.host().to_ascii_lowercase());
+            host.as_ref()
+                .and_then(|h| self.host_audiences.get(h))
+                .ok_or_else(|| AccessTokenError::Invalid("unknown admin host".into()))?
+        };
         let header = decode_header(token).map_err(|e| AccessTokenError::Invalid(e.to_string()))?;
         if header.alg != Algorithm::RS256 {
             return Err(AccessTokenError::Invalid(format!(
@@ -124,7 +144,7 @@ impl AccessTokenVerifier for CloudflareAccessVerifier {
         let key = self.decoding_key(&kid).await?;
 
         let mut validation = Validation::new(Algorithm::RS256);
-        validation.set_audience(&[&self.audience]);
+        validation.set_audience(&[audience]);
         validation.set_issuer(&[&self.issuer]);
         validation.set_required_spec_claims(&["exp", "iss", "aud"]);
         let data = decode::<AccessClaims>(token, &key, &validation)

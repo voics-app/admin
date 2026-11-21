@@ -87,10 +87,10 @@ async fn access_assertions_are_verified_end_to_end() {
 
     // A valid assertion yields its email.
     let email = verifier
-        .verify(&token(
-            &key,
-            claims("ops@discordy.dev", AUDIENCE, ISSUER, 300),
-        ))
+        .verify(
+            &token(&key, claims("ops@discordy.dev", AUDIENCE, ISSUER, 300)),
+            None,
+        )
         .await
         .unwrap();
     assert_eq!(email, "ops@discordy.dev");
@@ -107,7 +107,7 @@ async fn access_assertions_are_verified_end_to_end() {
         claims("ops@discordy.dev", AUDIENCE, ISSUER, -600),
     ] {
         assert!(matches!(
-            verifier.verify(&token(&key, bad)).await,
+            verifier.verify(&token(&key, bad), None).await,
             Err(AccessTokenError::Invalid(_))
         ));
     }
@@ -115,10 +115,10 @@ async fn access_assertions_are_verified_end_to_end() {
     // A token signed by a key the team never published is rejected.
     assert!(matches!(
         verifier
-            .verify(&token(
-                &other,
-                claims("ops@discordy.dev", AUDIENCE, ISSUER, 300)
-            ))
+            .verify(
+                &token(&other, claims("ops@discordy.dev", AUDIENCE, ISSUER, 300)),
+                None
+            )
             .await,
         Err(AccessTokenError::Invalid(_))
     ));
@@ -127,13 +127,13 @@ async fn access_assertions_are_verified_end_to_end() {
     let mut no_email = claims("", AUDIENCE, ISSUER, 300);
     no_email.as_object_mut().unwrap().remove("email");
     assert!(matches!(
-        verifier.verify(&token(&key, no_email)).await,
+        verifier.verify(&token(&key, no_email), None).await,
         Err(AccessTokenError::Invalid(_))
     ));
 
     // Garbage and HS256 tokens are rejected before any key lookup.
     assert!(matches!(
-        verifier.verify("not-a-jwt").await,
+        verifier.verify("not-a-jwt", None).await,
         Err(AccessTokenError::Invalid(_))
     ));
     let hs = encode(
@@ -143,7 +143,7 @@ async fn access_assertions_are_verified_end_to_end() {
     )
     .unwrap();
     assert!(matches!(
-        verifier.verify(&hs).await,
+        verifier.verify(&hs, None).await,
         Err(AccessTokenError::Invalid(_))
     ));
 }
@@ -158,10 +158,45 @@ async fn an_unreachable_certs_endpoint_is_a_key_outage() {
         AUDIENCE,
     );
     let result = verifier
-        .verify(&token(
-            &key,
-            claims("ops@discordy.dev", AUDIENCE, ISSUER, 300),
-        ))
+        .verify(
+            &token(&key, claims("ops@discordy.dev", AUDIENCE, ISSUER, 300)),
+            None,
+        )
         .await;
     assert!(matches!(result, Err(AccessTokenError::KeysUnavailable(_))));
+}
+
+#[tokio::test]
+async fn host_mapping_binds_each_signed_assertion_to_its_application() {
+    let key = signing_key("kid-1");
+    let server = certs_server(&[&key]).await;
+    let verifier = verifier(&server).with_host_audiences(std::collections::HashMap::from([
+        ("admin.voics.nl".into(), "short-aud".into()),
+        ("discordy-admin.voics.nl".into(), AUDIENCE.into()),
+    ]));
+    let short = token(&key, claims("ops@discordy.dev", "short-aud", ISSUER, 300));
+    let old = token(&key, claims("ops@discordy.dev", AUDIENCE, ISSUER, 300));
+    assert!(
+        verifier
+            .verify(&short, Some("admin.voics.nl"))
+            .await
+            .is_ok()
+    );
+    assert!(
+        verifier
+            .verify(&old, Some("discordy-admin.voics.nl"))
+            .await
+            .is_ok()
+    );
+    for (jwt, host) in [
+        (&short, Some("discordy-admin.voics.nl")),
+        (&old, Some("admin.voics.nl")),
+        (&short, Some("other.voics.nl")),
+        (&short, None),
+    ] {
+        assert!(matches!(
+            verifier.verify(jwt, host).await,
+            Err(AccessTokenError::Invalid(_))
+        ));
+    }
 }
