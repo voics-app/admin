@@ -338,6 +338,51 @@ async fn victoria_range_queries_return_labelled_points() {
 }
 
 #[tokio::test]
+async fn victoria_notifier_panels_query_drop_counts_and_preserve_provider_labels() {
+    let server = MockServer::start().await;
+    let queries = [
+        (
+            HealthPanel::PushDrops,
+            r#"sum by (provider) (increase(notifier_pushes_total{outcome="dropped"}[5m]))"#,
+            "provider",
+            "fcm",
+            "45000",
+        ),
+        (
+            HealthPanel::PushQueue,
+            "sum by (instance) (notifier_queue_depth)",
+            "instance",
+            "notifier-1",
+            "10000",
+        ),
+        (
+            HealthPanel::PushInFlight,
+            "sum by (instance) (notifier_in_flight)",
+            "instance",
+            "notifier-1",
+            "100",
+        ),
+    ];
+    let metrics = VictoriaPlatformMetrics::new(http_client(), &server.uri());
+    for (panel, query, key, label, value) in queries {
+        Mock::given(path("/api/v1/query"))
+            .and(query_param("query", query))
+            .respond_with(ResponseTemplate::new(200).set_body_json(
+                json!({"status": "success", "data": {"result": [
+                    {"metric": {key: label}, "value": [1, value]}
+                ]}}),
+            ))
+            .expect(1)
+            .mount(&server)
+            .await;
+        let values = metrics.snapshot(panel).await.unwrap();
+        assert_eq!(values.len(), 1);
+        assert_eq!(values[0].label, label);
+        assert_eq!(values[0].value, value.parse::<f64>().unwrap());
+    }
+}
+
+#[tokio::test]
 async fn victoria_query_errors_are_unavailable() {
     let server = MockServer::start().await;
     Mock::given(path("/api/v1/query"))

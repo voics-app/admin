@@ -121,7 +121,10 @@ export type HealthPanel =
   | "latency_p95"
   | "consumer_lag"
   | "db_latency_p95"
-  | "gateway_sessions";
+  | "gateway_sessions"
+  | "push_drops"
+  | "push_queue"
+  | "push_in_flight";
 
 export interface HealthSeries {
   panel: HealthPanel;
@@ -206,7 +209,7 @@ export interface ReportParty {
 
 export interface ReportSummary {
   id: string;
-  kind: "message" | "user";
+  kind: "message" | "user" | "guild" | "channel";
   category: string;
   note: string | null;
   status: ReportStatus;

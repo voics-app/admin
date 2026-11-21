@@ -11,7 +11,14 @@ use crate::application::ports::platform_metrics::{
 use crate::application::ports::{PortError, PortResult};
 
 /// Labels used to name a series, in order of preference.
-const LABEL_KEYS: [&str; 5] = ["job", "redpanda_group", "group", "node", "instance"];
+const LABEL_KEYS: [&str; 6] = [
+    "provider",
+    "job",
+    "redpanda_group",
+    "group",
+    "node",
+    "instance",
+];
 
 const UP_BY_JOB: &str = "sum by (job) (up)";
 const TARGETS_BY_JOB: &str = "count by (job) (up)";
@@ -36,6 +43,11 @@ pub fn promql(panel: HealthPanel) -> &'static str {
         HealthPanel::GatewaySessions => {
             "sum by (instance) (discordy_gateway_gauges_sessions_local)"
         }
+        HealthPanel::PushDrops => {
+            r#"sum by (provider) (increase(notifier_pushes_total{outcome="dropped"}[5m]))"#
+        }
+        HealthPanel::PushQueue => "sum by (instance) (notifier_queue_depth)",
+        HealthPanel::PushInFlight => "sum by (instance) (notifier_in_flight)",
     }
 }
 

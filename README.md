@@ -1,5 +1,10 @@
 # Voics admin
 
+Channel reports in Reports show a distinct channel target, server-captured channel
+metadata and the server owner at filing. They do not include messages, attachments,
+topics or member lists, and resolving a report does not change a channel or suspend
+its owner. This supports the age-restricted channel gate in client#76.
+
 Operations portal for Voics: a Rust backend-for-frontend (`bff/`, axum + sqlx) and a React SPA (`web/`, Vite + Recharts). The SPA is embedded in the BFF binary, so the whole portal ships as one image listening on port 8090.
 
 Pages: Overview, Usage, Voice regions (drain/resume nodes), Platform health, Trust & Safety (user and guild lookup, suspension), Reports, Send notification (`/notify`: a push notification by hand to one user or everyone), Feature flags, Audit log.
@@ -53,6 +58,32 @@ All configuration is environment variables, validated at startup (all problems a
 Every `/admin-api` request needs a valid `Cf-Access-Jwt-Assertion` (RS256, verified against `https://<team>.cloudflareaccess.com/cdn-cgi/access/certs`, issuer and audience checked) whose email is on `ADMIN_ALLOWED_EMAILS`. Failures return 401 or 403 with the platform `{code, message}` envelope. Mutating actions (drain, suspend, flags, sending a notification) are written to the audit log with the admin's email.
 
 Ops endpoints (no auth): `/healthz`, `/readyz`, `/metrics`.
+
+## Notifier backlog and drops
+
+Platform health includes **Dropped pushes (5m)** by provider, **Push queue** and **Push sends in
+flight** by notifier instance. These use the existing authenticated
+`GET /admin-api/platform/health/series?panel=...&range=...` response shape
+`{panel, range, series:[{label, points:[[timestamp,value]]}]`. Added panel keys are `push_drops`,
+`push_queue` and `push_in_flight`. No token, recipient or message content is queried.
+
+`push_drops` uses `sum by (provider) (increase(notifier_pushes_total{outcome="dropped"}[5m]))`.
+Each chart point is the estimated drop count for the preceding five minutes; it handles counter
+resets and is not a count over the entire selected range. Queue and in-flight charts use the
+corresponding `notifier_queue_depth` and `notifier_in_flight` gauges. In-flight includes retry waits.
+The notifier also exports configured limits as `notifier_queue_capacity` and
+`notifier_in_flight_limit`; compare these when investigating saturation. An empty series means
+no samples, not zero loss. The existing notifier scrape job must be reachable in VictoriaMetrics.
+No provider credentials or new BFF configuration are required by these read-only panels.
+
+## Discovery listing reports
+
+The Reports queue also accepts `kind: guild` from discovery. It identifies the
+guild and owner at filing, and labels evidence as a public listing snapshot.
+Only the public name, description, category and tags are captured; no private
+channels, members or messages are copied. Resolve/dismiss uses the existing
+audited operator flow and does not remove the listing. No new BFF route,
+credential or configuration is required; deploy with the paired api#45 change.
 
 ## Pending owner actions
 

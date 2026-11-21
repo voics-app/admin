@@ -22,6 +22,9 @@ const PANELS: { panel: HealthPanel; title: string; subtitle: string; format: (v:
   { panel: "consumer_lag", title: "Consumer lag", subtitle: "Messages behind, by consumer group", format: formatCount },
   { panel: "db_latency_p95", title: "Database latency p95", subtitle: "By database", format: formatMilliseconds },
   { panel: "gateway_sessions", title: "Gateway sessions", subtitle: "Online sessions, by gateway instance", format: formatCount },
+  { panel: "push_drops", title: "Dropped pushes (5m)", subtitle: "Estimated count in each preceding five minutes, by provider", format: formatCount },
+  { panel: "push_queue", title: "Push queue", subtitle: "Jobs waiting for a send slot, by notifier instance", format: formatCount },
+  { panel: "push_in_flight", title: "Push sends in flight", subtitle: "Active jobs including retry waits, by notifier instance", format: formatCount },
 ];
 
 export function PlatformHealthPage() {

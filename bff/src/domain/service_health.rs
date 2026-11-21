@@ -1,7 +1,8 @@
 /// Services always listed on the health page, even before they are scraped.
-pub const PLATFORM_SERVICES: [&str; 6] = [
+pub const PLATFORM_SERVICES: [&str; 7] = [
     "api",
     "messages",
+    "notifier",
     "gateway",
     "voice-signaling",
     "sfu",
