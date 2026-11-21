@@ -40,11 +40,11 @@ ARG VERSION=0.1.0
 ARG REVISION=unknown
 LABEL org.opencontainers.image.title="discordy-admin" \
       org.opencontainers.image.description="Voics admin portal: Rust BFF with the React SPA embedded" \
-      org.opencontainers.image.source="https://github.com/discordy-voics/admin" \
+      org.opencontainers.image.source="https://github.com/voics-app/admin" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${REVISION}" \
       org.opencontainers.image.licenses="UNLICENSED" \
-      org.opencontainers.image.vendor="discordy-voics"
+      org.opencontainers.image.vendor="voics-app"
 COPY --from=bff /src/bff/target/release/admin-bff /usr/local/bin/admin-bff
 USER nonroot:nonroot
 EXPOSE 8090
